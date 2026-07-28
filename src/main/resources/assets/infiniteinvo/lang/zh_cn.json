@@ -1,0 +1,9 @@
+{
+  "itemGroup.infiniteinvo": "InfiniteInvo",
+  "container.infiniteinvo.inventory": "无限背包",
+  "infiniteinvo.unlockslot": "解锁槽位",
+  "item.infiniteinvo.unlock_slot": "解锁槽位",
+  "item.infiniteinvo.locked_slot": "锁定槽位",
+  "item.infiniteinvo.unlock_slot.desc": "右键解锁一个额外槽位。潜行右键打开你的背包。",
+  "item.infiniteinvo.locked_slot.desc": "用于占位的内部物品。"
+}

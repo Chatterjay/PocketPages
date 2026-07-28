@@ -1,0 +1,9 @@
+{
+  "itemGroup.infiniteinvo": "InfiniteInvo",
+  "container.infiniteinvo.inventory": "Infinite Inventory",
+  "infiniteinvo.unlockslot": "Unlock Slot",
+  "item.infiniteinvo.unlock_slot": "Unlock Slot",
+  "item.infiniteinvo.locked_slot": "Locked Slot",
+  "item.infiniteinvo.unlock_slot.desc": "Right-click to unlock one more extra slot. Sneak-right-click to open your inventory.",
+  "item.infiniteinvo.locked_slot.desc": "Internal placeholder item used to reserve disabled slots."
+}
