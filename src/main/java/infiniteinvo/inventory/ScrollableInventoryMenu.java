@@ -2,6 +2,7 @@ package infiniteinvo.inventory;
 
 import infiniteinvo.Config;
 import infiniteinvo.InfiniteInvo;
+import org.anti_ad.mc.ipn.api.IPNSlotsIgnoreForInventoryTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.resources.ResourceLocation;
@@ -25,6 +26,7 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
 import java.util.Optional;
 
+@IPNSlotsIgnoreForInventoryTypes(value = {}, ignoreCraftingSlots = true)
 public final class ScrollableInventoryMenu extends AbstractContainerMenu {
     public static final int COLUMNS = ScrollableInventoryLayout.COLUMNS;
     public static final int VISIBLE_ROWS = ScrollableInventoryLayout.VISIBLE_ROWS;

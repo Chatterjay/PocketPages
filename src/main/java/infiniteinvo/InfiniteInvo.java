@@ -9,6 +9,7 @@ import infiniteinvo.network.OpenInfiniteInventoryPayload;
 import infiniteinvo.network.CloseCreativeInventoryPagingPayload;
 import infiniteinvo.network.CreativeInventoryPageDataPayload;
 import infiniteinvo.network.CreativeInventoryPageRequestPayload;
+import infiniteinvo.network.ClearInfiniteInventoryPayload;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.flag.FeatureFlags;
@@ -90,6 +91,10 @@ public final class InfiniteInvo {
                 CloseCreativeInventoryPagingPayload.TYPE,
                 CloseCreativeInventoryPagingPayload.STREAM_CODEC,
                 CloseCreativeInventoryPagingPayload::handle);
+        event.registrar("1").playToServer(
+                ClearInfiniteInventoryPayload.TYPE,
+                ClearInfiniteInventoryPayload.STREAM_CODEC,
+                ClearInfiniteInventoryPayload::handle);
         event.registrar("1").playToClient(
                 CreativeInventoryPageDataPayload.TYPE,
                 CreativeInventoryPageDataPayload.STREAM_CODEC,

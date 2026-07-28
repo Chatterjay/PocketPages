@@ -9,6 +9,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.neoforged.neoforge.client.event.ContainerScreenEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -28,7 +29,7 @@ public final class InfiniteInvoClientEvents {
     }
 
     @SubscribeEvent
-    public static void onScreenRender(ScreenEvent.Render.Post event) {
+    public static void onContainerForegroundRender(ContainerScreenEvent.Render.Foreground event) {
         CreativeInventoryController.render(event);
         ContainerInventoryPagingController.render(event);
     }
@@ -43,6 +44,11 @@ public final class InfiniteInvoClientEvents {
     public static void onMousePressed(ScreenEvent.MouseButtonPressed.Pre event) {
         CreativeInventoryController.mousePressed(event);
         ContainerInventoryPagingController.mousePressed(event);
+    }
+
+    @SubscribeEvent
+    public static void onMousePressedPost(ScreenEvent.MouseButtonPressed.Post event) {
+        CreativeInventoryController.mousePressedPost(event);
     }
 
     @SubscribeEvent

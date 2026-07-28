@@ -48,6 +48,16 @@ public final class CreativeInventoryPaging {
         PacketDistributor.sendToPlayer(player, new CreativeInventoryPageDataPayload(0, page(state, 0)));
     }
 
+    public static void clearAll(ServerPlayer player) {
+        InfiniteInventoryState state = InfiniteInventoryData.state(player);
+        for (int slot = 0; slot < state.size(); slot++) {
+            state.setItem(slot, ItemStack.EMPTY);
+        }
+        InfiniteInventoryData.markDirty(player);
+        int row = ACTIVE_ROWS.getOrDefault(player.getUUID(), 0);
+        PacketDistributor.sendToPlayer(player, new CreativeInventoryPageDataPayload(row, page(state, row)));
+    }
+
     private static void storeMappedPage(ServerPlayer player, InfiniteInventoryState state, int row) {
         int start = row * 9;
         for (int i = 0; i < PAGE_SIZE && start + i < state.size(); i++) {

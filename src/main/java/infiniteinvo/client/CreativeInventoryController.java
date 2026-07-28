@@ -4,6 +4,7 @@ import infiniteinvo.InfiniteInvo;
 import infiniteinvo.inventory.CreativeInventoryPaging;
 import infiniteinvo.network.CloseCreativeInventoryPagingPayload;
 import infiniteinvo.network.CreativeInventoryPageRequestPayload;
+import infiniteinvo.network.ClearInfiniteInventoryPayload;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -13,7 +14,9 @@ import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.neoforged.neoforge.client.event.ContainerScreenEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraft.world.inventory.Slot;
 
 /** Adds extended-inventory paging to the vanilla creative inventory tab. */
 public final class CreativeInventoryController {
@@ -29,8 +32,8 @@ public final class CreativeInventoryController {
     private CreativeInventoryController() {
     }
 
-    public static void render(ScreenEvent.Render.Post event) {
-        if (!(event.getScreen() instanceof CreativeModeInventoryScreen screen)) {
+    public static void render(ContainerScreenEvent.Render.Foreground event) {
+        if (!(event.getContainerScreen() instanceof CreativeModeInventoryScreen screen)) {
             return;
         }
 
@@ -61,14 +64,35 @@ public final class CreativeInventoryController {
 
     public static void mousePressed(ScreenEvent.MouseButtonPressed.Pre event) {
         State state = stateForOpenCreativeInventory(event.getScreen());
-        if (state == null || event.getButton() != 0 || !(event.getScreen() instanceof CreativeModeInventoryScreen screen)
-                || !isOverScrollbar(screen, event.getMouseX(), event.getMouseY())) {
+        if (state == null || event.getButton() != 0 || !(event.getScreen() instanceof CreativeModeInventoryScreen screen)) {
             return;
         }
+
+        state.destroyRequested = isDestroySlot(screen, event.getMouseX(), event.getMouseY());
+        if (state.destroyRequested) {
+            return;
+        }
+        if (!isOverScrollbar(screen, event.getMouseX(), event.getMouseY())) return;
 
         state.dragging = true;
         requestFromMouse(state, screen, event.getMouseY());
         event.setCanceled(true);
+    }
+
+    /**
+     * Runs after the native click path so vanilla and integration mods such as
+     * Curios can clear their own inventories before the extended state changes.
+     */
+    public static void mousePressedPost(ScreenEvent.MouseButtonPressed.Post event) {
+        State state = stateForOpenCreativeInventory(event.getScreen());
+        if (state == null || event.getButton() != 0 || !state.destroyRequested) {
+            return;
+        }
+
+        state.destroyRequested = false;
+        if (event.wasClickHandled()) {
+            PacketDistributor.sendToServer(ClearInfiniteInventoryPayload.INSTANCE);
+        }
     }
 
     public static void mouseDragged(ScreenEvent.MouseDragged.Pre event) {
@@ -141,9 +165,34 @@ public final class CreativeInventoryController {
                 && mouseY >= top && mouseY < top + TRACK_HEIGHT;
     }
 
+    private static boolean isDestroySlot(CreativeModeInventoryScreen screen, double mouseX, double mouseY) {
+        Slot slot = findSlotAt(screen, mouseX, mouseY);
+        if (slot == null) {
+            return false;
+        }
+
+        // Vanilla allocates a dedicated one-slot container only for its trash
+        // slot. Checking the slot object supports integrations that reposition it.
+        return slot.getContainerSlot() == 0
+                && slot.container.getContainerSize() == 1
+                && slot.getItem().isEmpty();
+    }
+
+    private static Slot findSlotAt(CreativeModeInventoryScreen screen, double mouseX, double mouseY) {
+        int relativeX = (int) mouseX - screen.getGuiLeft();
+        int relativeY = (int) mouseY - screen.getGuiTop();
+        for (Slot slot : screen.getMenu().slots) {
+            if (relativeX >= slot.x && relativeX < slot.x + 16
+                    && relativeY >= slot.y && relativeY < slot.y + 16) {
+                return slot;
+            }
+        }
+        return null;
+    }
+
     private static void drawScrollbar(GuiGraphics graphics, CreativeModeInventoryScreen screen, int row) {
-        int x = screen.getGuiLeft() + TRACK_X;
-        int y = screen.getGuiTop() + TRACK_Y;
+        int x = TRACK_X;
+        int y = TRACK_Y;
         graphics.blit(INVENTORY_TEXTURE, x, y, 52, 166, 8, 18);
         graphics.blit(INVENTORY_TEXTURE, x, y + 18, 44, 166, 8, 18);
         graphics.blit(INVENTORY_TEXTURE, x, y + 36, 36, 166, 8, 18);
@@ -161,5 +210,6 @@ public final class CreativeInventoryController {
         private int row;
         private boolean open;
         private boolean dragging;
+        private boolean destroyRequested;
     }
 }

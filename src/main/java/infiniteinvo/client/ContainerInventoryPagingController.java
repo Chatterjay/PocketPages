@@ -18,6 +18,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.neoforged.neoforge.client.event.ContainerScreenEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /** Adds creative-style extended-inventory paging to vanilla container screens. */
@@ -31,8 +32,8 @@ public final class ContainerInventoryPagingController {
     private ContainerInventoryPagingController() {
     }
 
-    public static void render(ScreenEvent.Render.Post event) {
-        if (!(event.getScreen() instanceof AbstractContainerScreen<?> screen) || screen instanceof CreativeModeInventoryScreen
+    public static void render(ContainerScreenEvent.Render.Foreground event) {
+        if (!(event.getContainerScreen() instanceof AbstractContainerScreen<?> screen) || screen instanceof CreativeModeInventoryScreen
                 || screen instanceof ScrollableInventoryScreen) {
             return;
         }
@@ -155,8 +156,8 @@ public final class ContainerInventoryPagingController {
     }
 
     private static void drawScrollbar(GuiGraphics graphics, AbstractContainerScreen<?> screen, Grid grid, int row) {
-        int x = screen.getGuiLeft() + grid.rightmostSlotX + 19;
-        int y = screen.getGuiTop() + grid.y - 1;
+        int x = grid.rightmostSlotX + 19;
+        int y = grid.y - 1;
         graphics.blit(INVENTORY_TEXTURE, x, y, 52, 166, 8, 18);
         graphics.blit(INVENTORY_TEXTURE, x, y + 18, 44, 166, 8, 18);
         graphics.blit(INVENTORY_TEXTURE, x, y + 36, 36, 166, 8, 18);
