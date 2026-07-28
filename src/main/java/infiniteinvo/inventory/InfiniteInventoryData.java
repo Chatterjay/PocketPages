@@ -3,9 +3,12 @@ package infiniteinvo.inventory;
 import infiniteinvo.Config;
 import infiniteinvo.InfiniteInvo;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
@@ -17,7 +20,7 @@ public final class InfiniteInventoryData {
     }
 
     public static int getUnlocked(Player player) {
-        if (player.getAbilities().instabuild) {
+        if (player.getAbilities().instabuild || !Config.requiresExperienceToUnlock()) {
             return Config.totalExtraSlots();
         }
         return state(player).getUnlockedSlots();
@@ -40,6 +43,20 @@ public final class InfiniteInventoryData {
 
     public static int nextUnlockCost(Player player) {
         return Config.unlockCost(getUnlocked(player));
+    }
+
+    public static boolean canAffordNextUnlock(Player player) {
+        if (player.getAbilities().instabuild || !Config.requiresExperienceToUnlock()) {
+            return true;
+        }
+        return player.totalExperience >= Config.unlockCostInExperiencePoints(getUnlocked(player));
+    }
+
+    public static void chargeForUnlock(Player player, int alreadyUnlocked) {
+        if (player.getAbilities().instabuild || !Config.requiresExperienceToUnlock()) {
+            return;
+        }
+        player.giveExperiencePoints(-Config.unlockCostInExperiencePoints(alreadyUnlocked));
     }
 
     public static InfiniteInventoryState state(Player player) {
@@ -69,6 +86,16 @@ public final class InfiniteInventoryData {
 
     public static void replaceState(ServerPlayer player, InfiniteInventoryState state) {
         InfiniteInventorySavedData.get(player.serverLevel()).replace(player.getUUID(), state);
+    }
+
+    /** Updates the client-side virtual store after a server page swap or close. */
+    public static void applyClientPage(Player player, int row, int unlocked, List<ItemStack> stacks) {
+        InfiniteInventoryState state = state(player);
+        state.setUnlockedSlots(unlocked);
+        int start = Math.max(0, row) * 9;
+        for (int index = 0; index < stacks.size() && start + index < state.size(); index++) {
+            state.setItem(start + index, stacks.get(index));
+        }
     }
 
     /** Inserts only into the non-vanilla portion of the extended inventory. */
@@ -106,6 +133,38 @@ public final class InfiniteInventoryData {
             markDirty(player);
         }
         return inserted;
+    }
+
+    /** Drops legacy stacks that remain in slots which have since become locked. */
+    public static void dropLockedItems(ServerPlayer player) {
+        InfiniteInventoryState state = state(player);
+        int unlocked = getUnlocked(player);
+        ServerLevel level = player.serverLevel();
+        boolean changed = false;
+
+        for (int slot = unlocked; slot < state.storedSize(); slot++) {
+            ItemStack stack = state.getStoredItem(slot);
+            if (stack.isEmpty()) {
+                continue;
+            }
+
+            dropAtPlayer(player, stack);
+            state.clearStoredItem(slot);
+            changed = true;
+        }
+        if (changed) {
+            markDirty(player);
+        }
+    }
+
+    public static void dropAtPlayer(ServerPlayer player, ItemStack stack) {
+        if (stack.isEmpty()) {
+            return;
+        }
+        ServerLevel level = player.serverLevel();
+        ItemEntity item = new ItemEntity(level, player.getX(), player.getY() + 0.5D, player.getZ(), stack.copy());
+        item.setDefaultPickUpDelay();
+        level.addFreshEntity(item);
     }
 
     /** Drops client-side menu state when leaving a world to prevent ghost slots in the next save. */

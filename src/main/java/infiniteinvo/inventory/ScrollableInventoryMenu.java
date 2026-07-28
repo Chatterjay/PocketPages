@@ -243,6 +243,9 @@ public final class ScrollableInventoryMenu extends AbstractContainerMenu {
     public void removed(Player player) {
         super.removed(player);
         store.syncToPlayer(player);
+        if (player instanceof ServerPlayer serverPlayer) {
+            InfiniteInventoryData.dropLockedItems(serverPlayer);
+        }
     }
 
     public void syncFromPlayer(Player player) {
@@ -255,14 +258,12 @@ public final class ScrollableInventoryMenu extends AbstractContainerMenu {
     @Override
     public boolean clickMenuButton(Player player, int id) {
         if (id == 0) {
-            int cost = InfiniteInventoryData.nextUnlockCost(player);
-            if (!player.getAbilities().instabuild && player.experienceLevel < cost) {
+            if (!InfiniteInventoryData.canAffordNextUnlock(player)) {
                 return false;
             }
+            int alreadyUnlocked = InfiniteInventoryData.getUnlocked(player);
             if (unlockOne(player)) {
-                if (!player.getAbilities().instabuild) {
-                    player.giveExperienceLevels(-cost);
-                }
+                InfiniteInventoryData.chargeForUnlock(player, alreadyUnlocked);
                 return true;
             }
             return false;

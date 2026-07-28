@@ -1,7 +1,8 @@
 package infiniteinvo.client;
 
-import infiniteinvo.inventory.CreativeInventoryPaging;
 import infiniteinvo.InfiniteInvo;
+import infiniteinvo.Config;
+import infiniteinvo.inventory.CreativeInventoryPaging;
 import infiniteinvo.network.CloseCreativeInventoryPagingPayload;
 import infiniteinvo.network.CreativeInventoryPageRequestPayload;
 import java.util.ArrayList;
@@ -28,6 +29,7 @@ public final class ContainerInventoryPagingController {
     private static final int KNOB_SIZE = 8;
     private static final int TRACK_HEIGHT = 54;
     private static final Map<AbstractContainerScreen<?>, State> STATES = new WeakHashMap<>();
+    private static int lastContainerRow;
 
     private ContainerInventoryPagingController() {
     }
@@ -47,9 +49,10 @@ public final class ContainerInventoryPagingController {
         state.grid = grid;
         if (!state.open) {
             state.open = true;
-            request(state, 0, true);
+            request(state, Config.REMEMBER_CONTAINER_PAGE.get() ? lastContainerRow : 0, true);
         }
         drawScrollbar(event.getGuiGraphics(), screen, grid, state.row);
+        drawLockedSlots(event.getGuiGraphics(), grid, state.row, state.unlockedSlots);
     }
 
     public static void mouseScrolled(ScreenEvent.MouseScrolled.Pre event) {
@@ -98,6 +101,11 @@ public final class ContainerInventoryPagingController {
             State state = STATES.remove(screen);
             if (state != null && state.open) {
                 state.open = false;
+                IpnCompat.captureMappedPageLocks(state.row);
+                IpnCompat.applyMappedPageLocks(0);
+                if (!Config.REMEMBER_CONTAINER_PAGE.get()) {
+                    lastContainerRow = 0;
+                }
                 PacketDistributor.sendToServer(CloseCreativeInventoryPagingPayload.INSTANCE);
             }
         }
@@ -131,7 +139,7 @@ public final class ContainerInventoryPagingController {
 
         slots.sort(Comparator.comparingInt((Slot slot) -> slot.y).thenComparingInt(slot -> slot.x));
         int rightmostSlotX = slots.stream().mapToInt(slot -> slot.x).max().orElseThrow();
-        return new Grid(slots.getFirst().x, slots.getFirst().y, rightmostSlotX);
+        return new Grid(slots.getFirst().x, slots.getFirst().y, rightmostSlotX, List.copyOf(slots));
     }
 
     private static void request(State state, int row, boolean force) {
@@ -139,8 +147,37 @@ public final class ContainerInventoryPagingController {
         if (!force && target == state.row) {
             return;
         }
+        if (state.open) {
+            IpnCompat.captureMappedPageLocks(state.row);
+        }
         state.row = target;
+        if (Config.REMEMBER_CONTAINER_PAGE.get()) {
+            lastContainerRow = target;
+        }
         PacketDistributor.sendToServer(new CreativeInventoryPageRequestPayload(target));
+    }
+
+    public static void receivePageData(int row, int unlocked) {
+        if (Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> screen) {
+            State state = STATES.get(screen);
+            if (state != null && state.open) {
+                state.row = row;
+                state.unlockedSlots = unlocked;
+                IpnCompat.applyMappedPageLocks(row);
+            }
+        }
+    }
+
+    /** Client-side counterpart to the server lock check, used by quick-craft previews. */
+    public static boolean isMappedSlotUnlocked(Inventory inventory, int inventorySlot) {
+        if (inventorySlot < 9 || inventorySlot >= 36 || Minecraft.getInstance().player == null
+                || inventory.player != Minecraft.getInstance().player
+                || !(Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> screen)) {
+            return true;
+        }
+
+        State state = STATES.get(screen);
+        return state == null || !state.open || inventorySlot - 9 + state.row * 9 < state.unlockedSlots;
     }
 
     private static void requestFromMouse(State state, AbstractContainerScreen<?> screen, double mouseY) {
@@ -165,13 +202,26 @@ public final class ContainerInventoryPagingController {
         graphics.blit(INVENTORY_TEXTURE, x, knobY, 60, 166, KNOB_SIZE, KNOB_SIZE);
     }
 
-    private record Grid(int x, int y, int rightmostSlotX) {
+    private static void drawLockedSlots(GuiGraphics graphics, Grid grid, int row, int unlockedSlots) {
+        for (int index = 0; index < grid.slots.size(); index++) {
+            Slot slot = grid.slots.get(index);
+            int virtualSlot = row * 9 + slot.getContainerSlot() - 9;
+            if (virtualSlot >= unlockedSlots) {
+                graphics.blit(INVENTORY_TEXTURE, slot.x - 1, slot.y - 1, 18, 166, 18, 18);
+            }
+        }
+    }
+
+    private record Grid(int x, int y, int rightmostSlotX, List<Slot> slots) {
     }
 
     private static final class State {
         private int row;
         private boolean open;
         private boolean dragging;
+        // The server will replace this with the authoritative unlock count.
+        // Rendering no lock marker until then is preferable to a false locked flash.
+        private int unlockedSlots = Integer.MAX_VALUE;
         private Grid grid;
     }
 }

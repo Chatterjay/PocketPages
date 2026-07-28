@@ -1,6 +1,8 @@
 package infiniteinvo.client;
 
+import infiniteinvo.Config;
 import infiniteinvo.InfiniteInvo;
+import infiniteinvo.inventory.InfiniteInventoryData;
 import infiniteinvo.inventory.ScrollableInventoryLayout;
 import infiniteinvo.inventory.ScrollableInventoryMenu;
 import net.minecraft.client.gui.GuiGraphics;
@@ -10,6 +12,7 @@ import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import java.util.Set;
 
 public final class ScrollableInventoryScreen extends AbstractContainerScreen<ScrollableInventoryMenu> {
     private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(InfiniteInvo.MODID, "textures/gui/adjustable_gui.png");
@@ -17,6 +20,8 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
     private float xMouse;
     private float yMouse;
     private boolean draggingScrollbar;
+    private boolean draggingIpnLock;
+    private boolean ipnLockTarget;
 
     public ScrollableInventoryScreen(ScrollableInventoryMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -29,7 +34,9 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
     @Override
     protected void init() {
         super.init();
-        if (minecraft != null && minecraft.player != null && minecraft.player.getAbilities().instabuild) {
+        IpnCompat.migrateNativeStorageLocks();
+        if (minecraft != null && minecraft.player != null
+                && (minecraft.player.getAbilities().instabuild || !Config.requiresExperienceToUnlock())) {
             return;
         }
         int x = leftPos + ScrollableInventoryLayout.UNLOCK_BUTTON_X;
@@ -49,11 +56,12 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
         if (unlockButton != null && minecraft != null && minecraft.player != null) {
             int cost = menu.getNextUnlockCost();
             boolean canUnlock = menu.getUnlockedSlots() < menu.getStore().getContainerSize()
-                    && (minecraft.player.getAbilities().instabuild || minecraft.player.experienceLevel >= cost);
+                    && InfiniteInventoryData.canAffordNextUnlock(minecraft.player);
             unlockButton.active = canUnlock;
+            int available = Config.usesExperiencePoints() ? minecraft.player.totalExperience : minecraft.player.experienceLevel;
             unlockButton.setMessage(canUnlock
                     ? Component.translatable("infiniteinvo.unlockslot")
-                    : Component.literal(minecraft.player.experienceLevel + " / " + cost + " XP"));
+                    : Component.literal(available + " / " + cost + " XP"));
         }
 
         super.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -128,6 +136,38 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
                 }
             }
         }
+
+        renderIpnLockedSlots(guiGraphics);
+    }
+
+    private void renderIpnLockedSlots(GuiGraphics graphics) {
+        boolean configuringLocks = IpnCompat.isLockConfigurationModifierDown();
+        Set<Integer> lockedSlots = IpnCompat.lockedInventorySlots();
+
+        for (int row = 0; row < menu.getVisibleRows(); row++) {
+            for (int col = 0; col < menu.getVisibleColumns(); col++) {
+                int virtualSlot = col + (row + menu.getScrollPos()) * menu.getVisibleColumns();
+                if (virtualSlot >= menu.getUnlockedSlots()) {
+                    continue;
+                }
+
+                int x = ScrollableInventoryLayout.GRID_X + col * ScrollableInventoryLayout.SLOT_SIZE;
+                int y = ScrollableInventoryLayout.GRID_Y + row * ScrollableInventoryLayout.SLOT_SIZE;
+                if (IpnCompat.isVirtualSlotLocked(lockedSlots, virtualSlot)) {
+                    graphics.fill(x, y, x + 16, y + 16, 0xC0FF5555);
+                } else if (configuringLocks) {
+                    drawIpnConfigurationMarker(graphics, x, y);
+                }
+            }
+        }
+    }
+
+    private static void drawIpnConfigurationMarker(GuiGraphics graphics, int x, int y) {
+        int color = 0xFFFFA000;
+        graphics.fill(x, y, x + 16, y + 2, color);
+        graphics.fill(x, y + 14, x + 16, y + 16, color);
+        graphics.fill(x, y, x + 2, y + 16, color);
+        graphics.fill(x + 14, y, x + 16, y + 16, color);
     }
 
     @Override
@@ -143,6 +183,14 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && IpnCompat.isLockConfigurationModifierDown()) {
+            int virtualSlot = virtualSlotAt(mouseX, mouseY);
+            if (virtualSlot >= 0 && virtualSlot < menu.getUnlockedSlots()) {
+                ipnLockTarget = IpnCompat.toggleVirtualSlotLock(virtualSlot);
+                draggingIpnLock = true;
+                return true;
+            }
+        }
         if (button == 0 && isOverScrollbar(mouseX, mouseY)) {
             draggingScrollbar = true;
             setScrollFromMouse(mouseY);
@@ -153,6 +201,13 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (draggingIpnLock && button == 0) {
+            int virtualSlot = virtualSlotAt(mouseX, mouseY);
+            if (virtualSlot >= 0 && virtualSlot < menu.getUnlockedSlots()) {
+                IpnCompat.setVirtualSlotLocked(virtualSlot, ipnLockTarget);
+            }
+            return true;
+        }
         if (draggingScrollbar && button == 0) {
             setScrollFromMouse(mouseY);
             return true;
@@ -162,6 +217,10 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0 && draggingIpnLock) {
+            draggingIpnLock = false;
+            return true;
+        }
         if (button == 0 && draggingScrollbar) {
             draggingScrollbar = false;
             return true;
@@ -175,6 +234,23 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
                 && mouseX < leftPos + ScrollableInventoryLayout.SCROLL_X + 15
                 && mouseY >= topPos + ScrollableInventoryLayout.SCROLL_Y
                 && mouseY < topPos + ScrollableInventoryLayout.SCROLL_Y + ScrollableInventoryLayout.SCROLL_HEIGHT;
+    }
+
+    private int virtualSlotAt(double mouseX, double mouseY) {
+        int relativeX = (int) mouseX - leftPos - ScrollableInventoryLayout.GRID_X;
+        int relativeY = (int) mouseY - topPos - ScrollableInventoryLayout.GRID_Y;
+        if (relativeX < 0 || relativeY < 0) {
+            return -1;
+        }
+
+        int col = relativeX / ScrollableInventoryLayout.SLOT_SIZE;
+        int row = relativeY / ScrollableInventoryLayout.SLOT_SIZE;
+        if (col >= menu.getVisibleColumns() || row >= menu.getVisibleRows()
+                || relativeX % ScrollableInventoryLayout.SLOT_SIZE >= 16
+                || relativeY % ScrollableInventoryLayout.SLOT_SIZE >= 16) {
+            return -1;
+        }
+        return col + (row + menu.getScrollPos()) * menu.getVisibleColumns();
     }
 
     private void setScrollFromMouse(double mouseY) {

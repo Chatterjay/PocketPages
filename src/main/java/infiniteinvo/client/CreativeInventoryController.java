@@ -2,6 +2,7 @@ package infiniteinvo.client;
 
 import infiniteinvo.InfiniteInvo;
 import infiniteinvo.inventory.CreativeInventoryPaging;
+import infiniteinvo.inventory.InfiniteInventoryData;
 import infiniteinvo.network.CloseCreativeInventoryPagingPayload;
 import infiniteinvo.network.CreativeInventoryPageRequestPayload;
 import infiniteinvo.network.ClearInfiniteInventoryPayload;
@@ -123,7 +124,7 @@ public final class CreativeInventoryController {
         }
     }
 
-    public static void applyPage(int row, List<ItemStack> stacks) {
+    public static void applyPage(int row, int unlockedSlots, List<ItemStack> stacks) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) {
             return;
@@ -133,6 +134,9 @@ public final class CreativeInventoryController {
             ItemStack stack = i < stacks.size() ? stacks.get(i) : ItemStack.EMPTY;
             minecraft.player.getInventory().setItem(i + 9, stack.copy());
         }
+        InfiniteInventoryData.applyClientPage(minecraft.player, row, unlockedSlots, stacks);
+        IpnCompat.applyMappedPageLocks(row);
+        ContainerInventoryPagingController.receivePageData(row, unlockedSlots);
     }
 
     private static State stateForOpenCreativeInventory(net.minecraft.client.gui.screens.Screen screen) {
@@ -147,6 +151,9 @@ public final class CreativeInventoryController {
         int target = Math.max(0, Math.min(row, CreativeInventoryPaging.maxRow()));
         if (!force && target == state.row) {
             return;
+        }
+        if (state.open) {
+            IpnCompat.captureMappedPageLocks(state.row);
         }
         state.row = target;
         PacketDistributor.sendToServer(new CreativeInventoryPageRequestPayload(target));
@@ -201,6 +208,8 @@ public final class CreativeInventoryController {
     }
 
     private static void close(State state) {
+        IpnCompat.captureMappedPageLocks(state.row);
+        IpnCompat.applyMappedPageLocks(0);
         state.open = false;
         state.dragging = false;
         PacketDistributor.sendToServer(CloseCreativeInventoryPagingPayload.INSTANCE);

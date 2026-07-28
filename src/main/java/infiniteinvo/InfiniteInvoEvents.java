@@ -16,6 +16,7 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
 public final class InfiniteInvoEvents {
     private InfiniteInvoEvents() {
@@ -33,7 +34,7 @@ public final class InfiniteInvoEvents {
                     ServerPlayer player = context.getSource().getPlayerOrException();
                     InfiniteInventoryState state = InfiniteInventoryData.state(player);
                     int cleared = 0;
-                    for (int slot = 0; slot < state.size(); slot++) {
+                    for (int slot = 0; slot < InfiniteInventoryData.getUnlocked(player); slot++) {
                         if (!state.getItem(slot).isEmpty()) {
                             state.setItem(slot, ItemStack.EMPTY);
                             cleared++;
@@ -75,9 +76,21 @@ public final class InfiniteInvoEvents {
         }
     }
 
+    @SubscribeEvent
+    public static void onPlayerTick(PlayerTickEvent.Post event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)
+                || player.tickCount % Config.LOCKED_ITEM_DROP_CHECK_INTERVAL_TICKS.get() != 0) {
+            return;
+        }
+
+        CreativeInventoryPaging.dropMappedLockedItems(player);
+        InfiniteInventoryData.dropLockedItems(player);
+    }
+
     private static void dropExtraSlots(ServerPlayer player, InfiniteInventoryState state) {
         ServerLevel level = player.serverLevel();
-        for (int slot = 27; slot < state.size(); slot++) {
+        int unlockedSlots = InfiniteInventoryData.getUnlocked(player);
+        for (int slot = 27; slot < unlockedSlots; slot++) {
             ItemStack stack = state.getItem(slot);
             if (stack.isEmpty()) {
                 continue;

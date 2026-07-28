@@ -32,7 +32,7 @@ final class ScrollSlot extends Slot {
 
     @Override
     public void set(ItemStack stack) {
-        if (virtualIndex < container.getContainerSize()) {
+        if (virtualIndex < container.getContainerSize() && (menu.isUnlocked(virtualIndex) || stack.isEmpty())) {
             container.setItem(virtualIndex, stack);
             setChanged();
         }
@@ -40,7 +40,9 @@ final class ScrollSlot extends Slot {
 
     @Override
     public ItemStack remove(int amount) {
-        return virtualIndex < container.getContainerSize() ? container.removeItem(virtualIndex, amount) : ItemStack.EMPTY;
+        return virtualIndex < container.getContainerSize() && (menu.isUnlocked(virtualIndex) || hasItem())
+                ? container.removeItem(virtualIndex, amount)
+                : ItemStack.EMPTY;
     }
 
     @Override
@@ -60,8 +62,10 @@ final class ScrollSlot extends Slot {
 
     @Override
     public boolean mayPickup(Player player) {
-        // A slot may become locked after an item was placed there in creative mode.
-        // Keeping pickup enabled ensures those items can always be recovered or cleared.
-        return virtualIndex < container.getContainerSize() && super.mayPickup(player);
+        // Recovery-only exception: old items must not be stranded or dropped
+        // when a player lowers their unlocked-slot count.
+        return virtualIndex < container.getContainerSize()
+                && (menu.isUnlocked(virtualIndex) || hasItem())
+                && super.mayPickup(player);
     }
 }

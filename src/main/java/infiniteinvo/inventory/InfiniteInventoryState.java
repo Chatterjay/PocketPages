@@ -27,9 +27,26 @@ public final class InfiniteInventoryState implements INBTSerializable<CompoundTa
         return Config.totalExtraSlots();
     }
 
+    /** Includes serialized slots from a previously larger configured inventory. */
+    public int storedSize() {
+        ensureSize();
+        return items.size();
+    }
+
     public ItemStack getItem(int slot) {
         ensureSize();
         return slot >= 0 && slot < size() ? items.get(slot) : ItemStack.EMPTY;
+    }
+
+    public ItemStack getStoredItem(int slot) {
+        ensureSize();
+        return slot >= 0 && slot < items.size() ? items.get(slot) : ItemStack.EMPTY;
+    }
+
+    public void clearStoredItem(int slot) {
+        if (slot >= 0 && slot < items.size()) {
+            items.set(slot, ItemStack.EMPTY);
+        }
     }
 
     public void setItem(int slot, ItemStack stack) {
