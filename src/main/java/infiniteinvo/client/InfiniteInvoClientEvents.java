@@ -20,6 +20,7 @@ public final class InfiniteInvoClientEvents {
 
     @SubscribeEvent
     public static void onScreenOpening(ScreenEvent.Opening event) {
+        ContainerInventoryPagingController.opening(event.getNewScreen());
         if (event.getNewScreen() instanceof InventoryScreen
                 && Minecraft.getInstance().player != null
                 && !Minecraft.getInstance().player.getAbilities().instabuild) {

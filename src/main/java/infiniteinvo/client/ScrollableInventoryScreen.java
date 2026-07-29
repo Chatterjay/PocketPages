@@ -7,33 +7,57 @@ import infiniteinvo.inventory.ScrollableInventoryLayout;
 import infiniteinvo.inventory.ScrollableInventoryMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.ImageButton;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.gui.screens.recipebook.RecipeBookComponent;
+import net.minecraft.client.gui.screens.recipebook.RecipeUpdateListener;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
-import java.util.Set;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import java.util.List;
 
-public final class ScrollableInventoryScreen extends AbstractContainerScreen<ScrollableInventoryMenu> {
+public final class ScrollableInventoryScreen extends AbstractContainerScreen<ScrollableInventoryMenu> implements RecipeUpdateListener {
     private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(InfiniteInvo.MODID, "textures/gui/adjustable_gui.png");
+    private static final int BACKGROUND_COLOR = 0xFFC6C6C6;
+    private final RecipeBookComponent recipeBookComponent = new RecipeBookComponent();
     private Button unlockButton;
+    private ImageButton recipeBookButton;
     private float xMouse;
     private float yMouse;
+    private boolean widthTooNarrow;
+    private boolean recipeBookButtonClicked;
     private boolean draggingScrollbar;
-    private boolean draggingIpnLock;
-    private boolean ipnLockTarget;
 
     public ScrollableInventoryScreen(ScrollableInventoryMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = ScrollableInventoryLayout.IMAGE_WIDTH;
         this.imageHeight = ScrollableInventoryLayout.IMAGE_HEIGHT;
-        this.titleLabelX = 87;
-        this.titleLabelY = 32;
+        this.titleLabelX = ScrollableInventoryLayout.CRAFTING_LABEL_X;
+        this.titleLabelY = ScrollableInventoryLayout.CRAFTING_LABEL_Y;
     }
 
     @Override
     protected void init() {
         super.init();
+        widthTooNarrow = width < 379;
+        recipeBookComponent.init(width, height, minecraft, widthTooNarrow, menu);
+        updateRecipeBookPosition();
+        recipeBookButton = addRenderableWidget(new ImageButton(
+                leftPos + ScrollableInventoryLayout.RECIPE_BOOK_BUTTON_X,
+                topPos + ScrollableInventoryLayout.RECIPE_BOOK_BUTTON_Y,
+                ScrollableInventoryLayout.RECIPE_BOOK_BUTTON_WIDTH,
+                ScrollableInventoryLayout.RECIPE_BOOK_BUTTON_HEIGHT,
+                RecipeBookComponent.RECIPE_BUTTON_SPRITES, button -> {
+            recipeBookComponent.toggleVisibility();
+            updateRecipeBookPosition();
+            recipeBookButtonClicked = true;
+        }));
+        addWidget(recipeBookComponent);
+
         IpnCompat.migrateNativeStorageLocks();
         if (minecraft != null && minecraft.player != null
                 && (minecraft.player.getAbilities().instabuild || !Config.requiresExperienceToUnlock())) {
@@ -64,8 +88,21 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
                     : Component.literal(available + " / " + cost + " XP"));
         }
 
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        if (recipeBookComponent.isVisible() && widthTooNarrow) {
+            renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+            recipeBookComponent.render(guiGraphics, mouseX, mouseY, partialTick);
+        } else {
+            super.render(guiGraphics, mouseX, mouseY, partialTick);
+            recipeBookComponent.render(guiGraphics, mouseX, mouseY, partialTick);
+            recipeBookComponent.renderGhostRecipe(guiGraphics, leftPos, topPos, false, partialTick);
+        }
         renderTooltip(guiGraphics, mouseX, mouseY);
+        recipeBookComponent.renderTooltip(guiGraphics, leftPos, topPos, mouseX, mouseY);
+    }
+
+    @Override
+    public void containerTick() {
+        recipeBookComponent.tick();
     }
 
     @Override
@@ -74,7 +111,15 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
         int top = topPos;
         g.blit(TEXTURE, left, top, 0, 0, 169, 137);
         for (int col = 0; col < ScrollableInventoryLayout.EXTRA_COLUMNS; col++) {
-            g.blit(TEXTURE, left + 169 + ScrollableInventoryLayout.SLOT_SIZE * col, top, 169, 0, 18, 137);
+            int x = left + 169 + ScrollableInventoryLayout.SLOT_SIZE * col;
+            if (col == 0) {
+                // The moved result slot ends in this first extension column.
+                g.blit(TEXTURE, x, top, 169, 0, 18, ScrollableInventoryLayout.GRID_BACKGROUND_Y);
+            } else {
+                drawExtensionHeaderBackground(g, x, top);
+            }
+            g.blit(TEXTURE, x, top + ScrollableInventoryLayout.GRID_BACKGROUND_Y,
+                    169, ScrollableInventoryLayout.GRID_BACKGROUND_Y, 18, 54);
         }
         for (int row = 0; row < ScrollableInventoryLayout.EXTRA_ROWS; row++) {
             g.blit(TEXTURE, left, top + 137 + ScrollableInventoryLayout.SLOT_SIZE * row, 0, 119, 169, 18);
@@ -111,9 +156,17 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
 
     }
 
+    private static void drawExtensionHeaderBackground(GuiGraphics graphics, int x, int y) {
+        graphics.fill(x, y, x + ScrollableInventoryLayout.SLOT_SIZE, y + 1, 0xFF000000);
+        graphics.fill(x, y + 1, x + ScrollableInventoryLayout.SLOT_SIZE, y + 3, 0xFFFFFFFF);
+        graphics.fill(x, y + 3, x + ScrollableInventoryLayout.SLOT_SIZE,
+                y + ScrollableInventoryLayout.GRID_BACKGROUND_Y, BACKGROUND_COLOR);
+    }
+
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        guiGraphics.drawString(font, Component.translatable("container.crafting"), 87, 32, 4210752, false);
+        guiGraphics.drawString(font, Component.translatable("container.crafting"),
+                ScrollableInventoryLayout.CRAFTING_LABEL_X, ScrollableInventoryLayout.CRAFTING_LABEL_Y, 4210752, false);
         if (menu.getMaxScroll() > 0) {
             int knobY = ScrollableInventoryLayout.SCROLL_Y
                     + Math.round((float) menu.getScrollPos() / menu.getMaxScroll() * ScrollableInventoryLayout.SCROLL_KNOB_TRAVEL);
@@ -137,37 +190,14 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
             }
         }
 
-        renderIpnLockedSlots(guiGraphics);
     }
 
-    private void renderIpnLockedSlots(GuiGraphics graphics) {
-        boolean configuringLocks = IpnCompat.isLockConfigurationModifierDown();
-        Set<Integer> lockedSlots = IpnCompat.lockedInventorySlots();
-
-        for (int row = 0; row < menu.getVisibleRows(); row++) {
-            for (int col = 0; col < menu.getVisibleColumns(); col++) {
-                int virtualSlot = col + (row + menu.getScrollPos()) * menu.getVisibleColumns();
-                if (virtualSlot >= menu.getUnlockedSlots()) {
-                    continue;
-                }
-
-                int x = ScrollableInventoryLayout.GRID_X + col * ScrollableInventoryLayout.SLOT_SIZE;
-                int y = ScrollableInventoryLayout.GRID_Y + row * ScrollableInventoryLayout.SLOT_SIZE;
-                if (IpnCompat.isVirtualSlotLocked(lockedSlots, virtualSlot)) {
-                    graphics.fill(x, y, x + 16, y + 16, 0xC0FF5555);
-                } else if (configuringLocks) {
-                    drawIpnConfigurationMarker(graphics, x, y);
-                }
-            }
+    @Override
+    protected void renderSlotHighlight(GuiGraphics graphics, net.minecraft.world.inventory.Slot slot,
+                                       int mouseX, int mouseY, float partialTick) {
+        if (!isInfiniteInvoLockedSlot(slot)) {
+            super.renderSlotHighlight(graphics, slot, mouseX, mouseY, partialTick);
         }
-    }
-
-    private static void drawIpnConfigurationMarker(GuiGraphics graphics, int x, int y) {
-        int color = 0xFFFFA000;
-        graphics.fill(x, y, x + 16, y + 2, color);
-        graphics.fill(x, y + 14, x + 16, y + 16, color);
-        graphics.fill(x, y, x + 2, y + 16, color);
-        graphics.fill(x + 14, y, x + 16, y + 16, color);
     }
 
     @Override
@@ -183,17 +213,19 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0 && IpnCompat.isLockConfigurationModifierDown()) {
-            int virtualSlot = virtualSlotAt(mouseX, mouseY);
-            if (virtualSlot >= 0 && virtualSlot < menu.getUnlockedSlots()) {
-                ipnLockTarget = IpnCompat.toggleVirtualSlotLock(virtualSlot);
-                draggingIpnLock = true;
-                return true;
-            }
+        if (recipeBookComponent.mouseClicked(mouseX, mouseY, button)) {
+            setFocused(recipeBookComponent);
+            return true;
+        }
+        if (widthTooNarrow && recipeBookComponent.isVisible()) {
+            return false;
         }
         if (button == 0 && isOverScrollbar(mouseX, mouseY)) {
             draggingScrollbar = true;
             setScrollFromMouse(mouseY);
+            return true;
+        }
+        if (isInfiniteInvoLockedVirtualSlot(virtualSlotAt(mouseX, mouseY))) {
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -201,15 +233,11 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (draggingIpnLock && button == 0) {
-            int virtualSlot = virtualSlotAt(mouseX, mouseY);
-            if (virtualSlot >= 0 && virtualSlot < menu.getUnlockedSlots()) {
-                IpnCompat.setVirtualSlotLocked(virtualSlot, ipnLockTarget);
-            }
-            return true;
-        }
         if (draggingScrollbar && button == 0) {
             setScrollFromMouse(mouseY);
+            return true;
+        }
+        if (isInfiniteInvoLockedVirtualSlot(virtualSlotAt(mouseX, mouseY))) {
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
@@ -217,8 +245,8 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (button == 0 && draggingIpnLock) {
-            draggingIpnLock = false;
+        if (recipeBookButtonClicked) {
+            recipeBookButtonClicked = false;
             return true;
         }
         if (button == 0 && draggingScrollbar) {
@@ -226,6 +254,48 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
             return true;
         }
         return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        return recipeBookComponent.keyPressed(keyCode, scanCode, modifiers)
+                || super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char codePoint, int modifiers) {
+        return recipeBookComponent.charTyped(codePoint, modifiers)
+                || super.charTyped(codePoint, modifiers);
+    }
+
+    @Override
+    protected boolean isHovering(int x, int y, int width, int height, double mouseX, double mouseY) {
+        return (!widthTooNarrow || !recipeBookComponent.isVisible())
+                && super.isHovering(x, y, width, height, mouseX, mouseY);
+    }
+
+    @Override
+    protected boolean hasClickedOutside(double mouseX, double mouseY, int guiLeft, int guiTop, int mouseButton) {
+        boolean outside = mouseX < guiLeft || mouseY < guiTop
+                || mouseX >= guiLeft + imageWidth || mouseY >= guiTop + imageHeight;
+        return recipeBookComponent.hasClickedOutside(mouseX, mouseY, leftPos, topPos,
+                imageWidth, imageHeight, mouseButton) && outside;
+    }
+
+    @Override
+    protected void slotClicked(Slot slot, int slotId, int mouseButton, ClickType clickType) {
+        super.slotClicked(slot, slotId, mouseButton, clickType);
+        recipeBookComponent.slotClicked(slot);
+    }
+
+    @Override
+    public void recipesUpdated() {
+        recipeBookComponent.recipesUpdated();
+    }
+
+    @Override
+    public RecipeBookComponent getRecipeBookComponent() {
+        return recipeBookComponent;
     }
 
     private boolean isOverScrollbar(double mouseX, double mouseY) {
@@ -252,6 +322,64 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
         }
         return col + (row + menu.getScrollPos()) * menu.getVisibleColumns();
     }
+
+    private boolean isInfiniteInvoLockedSlot(net.minecraft.world.inventory.Slot slot) {
+        if (slot == null) {
+            return false;
+        }
+
+        int relativeX = slot.x - ScrollableInventoryLayout.GRID_X;
+        int relativeY = slot.y - ScrollableInventoryLayout.GRID_Y;
+        if (relativeX < 0 || relativeY < 0 || relativeX % ScrollableInventoryLayout.SLOT_SIZE != 0
+                || relativeY % ScrollableInventoryLayout.SLOT_SIZE != 0) {
+            return false;
+        }
+
+        int col = relativeX / ScrollableInventoryLayout.SLOT_SIZE;
+        int row = relativeY / ScrollableInventoryLayout.SLOT_SIZE;
+        if (col >= menu.getVisibleColumns() || row >= menu.getVisibleRows()) {
+            return false;
+        }
+        int virtualSlot = col + (row + menu.getScrollPos()) * menu.getVisibleColumns();
+        return isInfiniteInvoLockedVirtualSlot(virtualSlot);
+    }
+
+    private boolean isInfiniteInvoLockedVirtualSlot(int virtualSlot) {
+        return virtualSlot >= menu.getUnlockedSlots();
+    }
+
+    static ScrollableInventoryScreen current() {
+        return Minecraft.getInstance().screen instanceof ScrollableInventoryScreen screen ? screen : null;
+    }
+
+    public static boolean isIpnVirtualSlotLocked(Slot slot) {
+        ScrollableInventoryScreen screen = current();
+        return screen != null && slot.container == screen.menu.getStore()
+                && slot.getContainerSlot() < screen.menu.getUnlockedSlots()
+                && IpnCompat.isVirtualSlotLocked(slot.getContainerSlot());
+    }
+
+    List<Slot> visibleVirtualSlots() {
+        return menu.slots.stream().filter(slot -> slot.container == menu.getStore()).toList();
+    }
+
+    int unlockedSlots() {
+        return menu.getUnlockedSlots();
+    }
+
+    private void updateRecipeBookPosition() {
+        leftPos = recipeBookComponent.updateScreenPosition(width, imageWidth);
+        topPos = (height - imageHeight) / 2;
+        if (recipeBookButton != null) {
+            recipeBookButton.setPosition(leftPos + ScrollableInventoryLayout.RECIPE_BOOK_BUTTON_X,
+                    topPos + ScrollableInventoryLayout.RECIPE_BOOK_BUTTON_Y);
+        }
+        if (unlockButton != null) {
+            unlockButton.setPosition(leftPos + ScrollableInventoryLayout.UNLOCK_BUTTON_X,
+                    topPos + ScrollableInventoryLayout.UNLOCK_BUTTON_Y);
+        }
+    }
+
 
     private void setScrollFromMouse(double mouseY) {
         int target = (int) Math.round((mouseY - topPos - ScrollableInventoryLayout.SCROLL_Y - 4)

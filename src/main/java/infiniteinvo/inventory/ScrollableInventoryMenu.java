@@ -12,9 +12,12 @@ import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.entity.player.StackedContents;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.CraftingContainer;
+import net.minecraft.world.inventory.RecipeBookMenu;
+import net.minecraft.world.inventory.RecipeBookType;
 import net.minecraft.world.inventory.ResultContainer;
 import net.minecraft.world.inventory.ResultSlot;
 import net.minecraft.world.inventory.Slot;
@@ -27,7 +30,7 @@ import net.minecraft.world.item.crafting.RecipeType;
 import java.util.Optional;
 
 @IPNSlotsIgnoreForInventoryTypes(value = {}, ignoreCraftingSlots = true)
-public final class ScrollableInventoryMenu extends AbstractContainerMenu {
+public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput, CraftingRecipe> {
     public static final int COLUMNS = ScrollableInventoryLayout.COLUMNS;
     public static final int VISIBLE_ROWS = ScrollableInventoryLayout.VISIBLE_ROWS;
     public static final int VISIBLE_GRID_SLOTS = COLUMNS * VISIBLE_ROWS;
@@ -61,6 +64,7 @@ public final class ScrollableInventoryMenu extends AbstractContainerMenu {
         addArmorSlots();
         addGridSlots();
         addHotbarSlots();
+        addOffhandSlot();
         addDataSlots(data);
         updateScroll(0);
     }
@@ -172,8 +176,16 @@ public final class ScrollableInventoryMenu extends AbstractContainerMenu {
         }
     }
 
+    private void addOffhandSlot() {
+        addSlot(new OffhandSlot(playerInventory, playerInventory.player,
+                ScrollableInventoryLayout.OFFHAND_X, ScrollableInventoryLayout.OFFHAND_Y));
+    }
+
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
+        if (index < 0 || index >= slots.size()) {
+            return ItemStack.EMPTY;
+        }
         Slot slot = slots.get(index);
         if (slot == null || !slot.hasItem()) {
             return ItemStack.EMPTY;
@@ -214,6 +226,52 @@ public final class ScrollableInventoryMenu extends AbstractContainerMenu {
     @Override
     public boolean stillValid(Player player) {
         return true;
+    }
+
+    @Override
+    public void fillCraftSlotsStackedContents(StackedContents stackedContents) {
+        craftSlots.fillStackedContents(stackedContents);
+    }
+
+    @Override
+    public void clearCraftingContent() {
+        resultSlots.clearContent();
+        craftSlots.clearContent();
+    }
+
+    @Override
+    public boolean recipeMatches(RecipeHolder<CraftingRecipe> recipe) {
+        return recipe.value().matches(craftSlots.asCraftInput(), playerInventory.player.level());
+    }
+
+    @Override
+    public int getResultSlotIndex() {
+        return RESULT_SLOT;
+    }
+
+    @Override
+    public int getGridWidth() {
+        return craftSlots.getWidth();
+    }
+
+    @Override
+    public int getGridHeight() {
+        return craftSlots.getHeight();
+    }
+
+    @Override
+    public int getSize() {
+        return CRAFTING_START + 4;
+    }
+
+    @Override
+    public RecipeBookType getRecipeBookType() {
+        return RecipeBookType.CRAFTING;
+    }
+
+    @Override
+    public boolean shouldMoveToInventory(int slotIndex) {
+        return slotIndex != RESULT_SLOT;
     }
 
     @Override

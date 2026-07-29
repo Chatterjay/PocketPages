@@ -10,7 +10,9 @@
     "PlayerMainInvWrapperOverflowMixin"
   ],
   "client": [
-    "client.ClientMappedPlayerSlotLockMixin"
+    "client.ClientMappedPlayerSlotLockMixin",
+    "client.IpnAreaTypesMixin",
+    "client.IpnLockSlotsHandlerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

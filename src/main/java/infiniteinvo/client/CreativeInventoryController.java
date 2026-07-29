@@ -48,6 +48,7 @@ public final class CreativeInventoryController {
 
         if (!state.open) {
             state.open = true;
+            IpnCompat.migrateNativeStorageLocks();
             request(state, 0, true);
         }
         drawScrollbar(event.getGuiGraphics(), screen, state.row);
@@ -126,7 +127,7 @@ public final class CreativeInventoryController {
 
     public static void applyPage(int row, int unlockedSlots, List<ItemStack> stacks) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null) {
+        if (minecraft.player == null || !ContainerInventoryPagingController.shouldApplyPageData(row)) {
             return;
         }
 

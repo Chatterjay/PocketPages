@@ -7,6 +7,8 @@
   "item.infiniteinvo.unlock_slot.desc": "Right-click to unlock one more extra slot. Sneak-right-click to open your inventory.",
   "item.infiniteinvo.locked_slot.desc": "Internal placeholder item used to reserve disabled slots.",
   "infiniteinvo.configuration.title": "InfiniteInvo Configuration",
+  "infiniteinvo.configuration.server": "Server",
+  "infiniteinvo.configuration.client": "Client",
   "infiniteinvo.configuration.total_extra_slots": "Inventory Slot Capacity",
   "infiniteinvo.configuration.total_extra_slots.tooltip": "Total slots managed by InfiniteInvo, excluding the hotbar. Client and server must use the same value.",
   "infiniteinvo.configuration.start_unlocked_slots": "Initially Unlocked Slots",

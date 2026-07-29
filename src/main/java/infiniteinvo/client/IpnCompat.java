@@ -4,12 +4,14 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.world.inventory.Slot;
 import net.neoforged.fml.ModList;
 
 /** Optional, reflection-based bridge for IPN lock state in virtual inventory slots. */
-final class IpnCompat {
+public final class IpnCompat {
     private static final int VIRTUAL_SLOT_BASE = 1_000_000;
     private static Method getInstance;
     private static Method getLockedSlots;
@@ -55,6 +57,34 @@ final class IpnCompat {
 
     static boolean isVirtualSlotLocked(Set<Integer> lockedSlots, int virtualSlot) {
         return lockedSlots.contains(lockKey(virtualSlot));
+    }
+
+    /**
+     * Extends IPN's own player-slot map while the scrollable inventory is open.
+     * IPN then owns its normal rendering, configuration keys, and lock swipe
+     * behavior for the virtual slots too.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static Map appendVisibleVirtualSlotLocations(Map locations) {
+        ScrollableInventoryScreen screen = ScrollableInventoryScreen.current();
+        if (screen == null || locations.isEmpty()) {
+            return locations;
+        }
+
+        Object samplePoint = locations.values().iterator().next();
+        try {
+            var pointConstructor = samplePoint.getClass().getConstructor(int.class, int.class);
+            Map<Object, Object> result = new LinkedHashMap<>(locations);
+            for (Slot slot : screen.visibleVirtualSlots()) {
+                int virtualSlot = slot.getContainerSlot();
+                if (virtualSlot < screen.unlockedSlots()) {
+                    result.put(lockKey(virtualSlot), pointConstructor.newInstance(slot.x, slot.y));
+                }
+            }
+            return result;
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            return locations;
+        }
     }
 
     /** Converts old first-page IPN locks into stable virtual inventory locks. */
@@ -112,37 +142,6 @@ final class IpnCompat {
         if (changed) {
             saveLocks();
         }
-    }
-
-    static boolean toggleVirtualSlotLock(int virtualSlot) {
-        Set<Integer> locks = mutableLockedSlots();
-        if (locks == null) {
-            return false;
-        }
-
-        int key = lockKey(virtualSlot);
-        boolean locked = !locks.remove(key);
-        if (locked) {
-            locks.add(key);
-        }
-        saveLocks();
-        return locked;
-    }
-
-    static void setVirtualSlotLocked(int virtualSlot, boolean locked) {
-        Set<Integer> locks = mutableLockedSlots();
-        if (locks == null) {
-            return;
-        }
-
-        int key = lockKey(virtualSlot);
-        if (locked ? locks.add(key) : locks.remove(key)) {
-            saveLocks();
-        }
-    }
-
-    static boolean isLockConfigurationModifierDown() {
-        return isAvailable() && Screen.hasAltDown();
     }
 
     private static boolean isAvailable() {

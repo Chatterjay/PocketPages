@@ -7,6 +7,8 @@
   "item.infiniteinvo.unlock_slot.desc": "\u53f3\u952e\u89e3\u9501\u4e00\u4e2a\u989d\u5916\u69fd\u4f4d\u3002\u6f5c\u884c\u53f3\u952e\u6253\u5f00\u80cc\u5305\u3002",
   "item.infiniteinvo.locked_slot.desc": "\u7528\u4e8e\u5360\u4f4d\u7684\u5185\u90e8\u7269\u54c1\u3002",
   "infiniteinvo.configuration.title": "InfiniteInvo \u914d\u7f6e",
+  "infiniteinvo.configuration.server": "\u670d\u52a1\u7aef",
+  "infiniteinvo.configuration.client": "\u5ba2\u6237\u7aef",
   "infiniteinvo.configuration.total_extra_slots": "\u80cc\u5305\u69fd\u4f4d\u5bb9\u91cf",
   "infiniteinvo.configuration.total_extra_slots.tooltip": "InfiniteInvo \u7ba1\u7406\u7684\u69fd\u4f4d\u603b\u6570\uff0c\u4e0d\u542b\u5feb\u6377\u680f\u3002\u5ba2\u6237\u7aef\u4e0e\u670d\u52a1\u7aef\u5fc5\u987b\u4fdd\u6301\u4e00\u81f4\u3002",
   "infiniteinvo.configuration.start_unlocked_slots": "\u521d\u59cb\u89e3\u9501\u69fd\u4f4d",

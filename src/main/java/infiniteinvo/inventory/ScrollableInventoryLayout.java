@@ -17,10 +17,12 @@ public final class ScrollableInventoryLayout {
 
     public static final int ARMOR_X = 8;
     public static final int ARMOR_Y = 8;
-    public static final int CRAFT_X = 88;
-    public static final int CRAFT_Y = 43;
-    public static final int RESULT_X = 144;
-    public static final int RESULT_Y = 53;
+    public static final int CRAFT_X = 103;
+    public static final int CRAFT_Y = 44;
+    public static final int RESULT_X = 159;
+    public static final int RESULT_Y = 54;
+    public static final int OFFHAND_X = 81;
+    public static final int OFFHAND_Y = 62;
     public static final int GRID_X = 8;
     public static final int GRID_Y = 84;
     public static final int GRID_BACKGROUND_X = GRID_X - 1;
@@ -31,6 +33,12 @@ public final class ScrollableInventoryLayout {
     public static final int SCROLL_Y = GRID_BACKGROUND_Y;
     public static final int SCROLL_HEIGHT = VISIBLE_ROWS * SLOT_SIZE;
     public static final int SCROLL_KNOB_TRAVEL = SCROLL_HEIGHT - 8;
+    public static final int CRAFTING_LABEL_X = 102;
+    public static final int CRAFTING_LABEL_Y = 32;
+    public static final int RECIPE_BOOK_BUTTON_X = 82;
+    public static final int RECIPE_BOOK_BUTTON_Y = 42;
+    public static final int RECIPE_BOOK_BUTTON_WIDTH = 16;
+    public static final int RECIPE_BOOK_BUTTON_HEIGHT = 16;
     public static final int UNLOCK_BUTTON_X = 87;
     public static final int UNLOCK_BUTTON_Y = 7;
 
