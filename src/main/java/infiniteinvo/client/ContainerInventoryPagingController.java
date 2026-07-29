@@ -101,8 +101,10 @@ public final class ContainerInventoryPagingController {
             State state = STATES.remove(screen);
             if (state != null && state.open) {
                 state.open = false;
-                IpnCompat.captureMappedPageLocks(state.row);
-                IpnCompat.applyMappedPageLocks(0);
+                if (state.pageLocksApplied) {
+                    IpnCompat.captureMappedPageLocks(state.row);
+                    IpnCompat.applyMappedPageLocks(0);
+                }
                 if (!Config.REMEMBER_CONTAINER_PAGE.get()) {
                     lastContainerRow = 0;
                 }
@@ -147,7 +149,7 @@ public final class ContainerInventoryPagingController {
         if (!force && target == state.row) {
             return;
         }
-        if (state.open) {
+        if (state.pageLocksApplied) {
             IpnCompat.captureMappedPageLocks(state.row);
         }
         state.row = target;
@@ -164,6 +166,7 @@ public final class ContainerInventoryPagingController {
                 state.row = row;
                 state.unlockedSlots = unlocked;
                 IpnCompat.applyMappedPageLocks(row);
+                state.pageLocksApplied = true;
             }
         }
     }
@@ -218,6 +221,7 @@ public final class ContainerInventoryPagingController {
     private static final class State {
         private int row;
         private boolean open;
+        private boolean pageLocksApplied;
         private boolean dragging;
         // The server will replace this with the authoritative unlock count.
         // Rendering no lock marker until then is preferable to a false locked flash.

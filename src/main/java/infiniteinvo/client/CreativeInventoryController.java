@@ -136,6 +136,12 @@ public final class CreativeInventoryController {
         }
         InfiniteInventoryData.applyClientPage(minecraft.player, row, unlockedSlots, stacks);
         IpnCompat.applyMappedPageLocks(row);
+        if (minecraft.screen instanceof CreativeModeInventoryScreen screen) {
+            State state = STATES.get(screen);
+            if (state != null && state.open) {
+                state.pageLocksApplied = true;
+            }
+        }
         ContainerInventoryPagingController.receivePageData(row, unlockedSlots);
     }
 
@@ -152,7 +158,7 @@ public final class CreativeInventoryController {
         if (!force && target == state.row) {
             return;
         }
-        if (state.open) {
+        if (state.pageLocksApplied) {
             IpnCompat.captureMappedPageLocks(state.row);
         }
         state.row = target;
@@ -208,8 +214,10 @@ public final class CreativeInventoryController {
     }
 
     private static void close(State state) {
-        IpnCompat.captureMappedPageLocks(state.row);
-        IpnCompat.applyMappedPageLocks(0);
+        if (state.pageLocksApplied) {
+            IpnCompat.captureMappedPageLocks(state.row);
+            IpnCompat.applyMappedPageLocks(0);
+        }
         state.open = false;
         state.dragging = false;
         PacketDistributor.sendToServer(CloseCreativeInventoryPagingPayload.INSTANCE);
@@ -218,6 +226,7 @@ public final class CreativeInventoryController {
     private static final class State {
         private int row;
         private boolean open;
+        private boolean pageLocksApplied;
         private boolean dragging;
         private boolean destroyRequested;
     }
