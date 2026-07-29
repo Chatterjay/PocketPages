@@ -21,15 +21,15 @@ public final class Config {
         TOTAL_EXTRA_SLOTS = BUILDER
                 .comment("Total inventory slots managed by InfiniteInvo, excluding the hotbar. Must match between client and server.")
                 .translation("infiniteinvo.configuration.total_extra_slots")
-                .defineInRange("totalExtraSlots", 36, 36, 2160);
+                .defineInRange("totalExtraSlots", 54, 36, 2160);
         START_UNLOCKED_SLOTS = BUILDER
                 .comment("Number of InfiniteInvo slots unlocked for new players. Set this to totalExtraSlots to start with every slot unlocked.")
                 .translation("infiniteinvo.configuration.start_unlocked_slots")
-                .defineInRange("startUnlockedSlots", 36, 0, 2160);
+                .defineInRange("startUnlockedSlots", 54, 0, 2160);
         REQUIRE_EXPERIENCE_TO_UNLOCK = BUILDER
                 .comment("Whether non-creative players must spend experience to unlock slots. When false, every configured slot is unlocked.")
                 .translation("infiniteinvo.configuration.require_experience_to_unlock")
-                .define("requireExperienceToUnlock", true);
+                .define("requireExperienceToUnlock", false);
         UNLOCK_COST = BUILDER
                 .comment("Base cost to unlock one slot. This is levels by default, or experience points when useExperiencePoints is enabled.")
                 .translation("infiniteinvo.configuration.unlock_cost")
@@ -45,7 +45,7 @@ public final class Config {
         KEEP_UNLOCKS_ON_DEATH = BUILDER
                 .comment("Whether unlocked extra slots survive death when keepInventory is false.")
                 .translation("infiniteinvo.configuration.keep_unlocks_on_death")
-                .define("keepUnlocksOnDeath", false);
+                .define("keepUnlocksOnDeath", true);
         LOCKED_ITEM_DROP_CHECK_INTERVAL_TICKS = BUILDER
                 .comment("Server ticks between locked-slot safety checks. One tick gives immediate cleanup; increase only to reduce work for very large player counts.")
                 .translation("infiniteinvo.configuration.locked_item_drop_check_interval_ticks")
