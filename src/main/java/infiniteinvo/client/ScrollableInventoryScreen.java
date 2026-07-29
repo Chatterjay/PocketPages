@@ -244,14 +244,23 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
             return;
         }
         if (isRecoloredGuiPackEnabled()) {
-            graphics.blit(TEXTURE, slot.x, slot.y,
-                    ScrollableInventoryLayout.HOVER_SPRITE_X,
-                    ScrollableInventoryLayout.HOVER_SPRITE_Y,
-                    ScrollableInventoryLayout.HOVER_SPRITE_SIZE,
-                    ScrollableInventoryLayout.HOVER_SPRITE_SIZE);
+            renderTerminalStyleSlotHighlight(graphics, slot.x, slot.y);
         } else {
             super.renderSlotHighlight(graphics, slot, mouseX, mouseY, partialTick);
         }
+    }
+
+    private static void renderTerminalStyleSlotHighlight(GuiGraphics graphics, int x, int y) {
+        final int width = 16;
+        final int height = 16;
+        final int borderColor = 0xFFDAFFFF;
+        final int fillColor = 0x669CD3FF;
+
+        graphics.hLine(x, x + width, y - 1, borderColor);
+        graphics.hLine(x - 1, x + width, y + height, borderColor);
+        graphics.vLine(x - 1, y - 2, y + height, borderColor);
+        graphics.vLine(x + width, y - 2, y + height, borderColor);
+        graphics.fillGradient(x, y, x + width, y + height, fillColor, fillColor);
     }
 
     private boolean isRecoloredGuiPackEnabled() {

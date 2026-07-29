@@ -27,6 +27,44 @@ public final class ScrollableInventoryStore implements Container {
         InfiniteInventoryData.markDirty(player);
     }
 
+    /**
+     * Reconciles the vanilla main-inventory mirror without changing the active page.
+     * This is used while the custom menu is open, when vanilla pickup and automation
+     * paths can still mutate inventory slots 9 through 35 directly.
+     */
+    void syncNativeMirrorFromPlayer(Player player) {
+        boolean changed = false;
+        for (int stateSlot = 0; stateSlot < 27 && stateSlot < getContainerSize(); stateSlot++) {
+            int inventorySlot = stateSlot + 9;
+            if (inventorySlot >= player.getInventory().items.size()) {
+                break;
+            }
+
+            ItemStack nativeStack = player.getInventory().getItem(inventorySlot);
+            if (!ItemStack.matches(state.getItem(stateSlot), nativeStack)) {
+                state.setItem(stateSlot, nativeStack);
+                changed = true;
+            }
+        }
+        if (changed) {
+            InfiniteInventoryData.markDirty(player);
+        }
+    }
+
+    void syncNativeMirrorSlotFromPlayer(Player player, int inventorySlot) {
+        int stateSlot = inventorySlot - 9;
+        if (stateSlot < 0 || stateSlot >= 27 || stateSlot >= getContainerSize()
+                || inventorySlot >= player.getInventory().items.size()) {
+            return;
+        }
+
+        ItemStack nativeStack = player.getInventory().getItem(inventorySlot);
+        if (!ItemStack.matches(state.getItem(stateSlot), nativeStack)) {
+            state.setItem(stateSlot, nativeStack);
+            InfiniteInventoryData.markDirty(player);
+        }
+    }
+
     void syncToPlayer(Player player) {
         for (int i = 0; i < 27 && i + 9 < player.getInventory().items.size() && i < getContainerSize(); i++) {
             player.getInventory().setItem(i + 9, state.getItem(i).copy());
@@ -59,6 +97,7 @@ public final class ScrollableInventoryStore implements Container {
         if (!removed.isEmpty()) {
             InfiniteInventoryData.markDirty(owner);
         }
+        syncSlotToPlayer(slot);
         return removed;
     }
 
@@ -68,6 +107,7 @@ public final class ScrollableInventoryStore implements Container {
         if (!removed.isEmpty()) {
             InfiniteInventoryData.markDirty(owner);
         }
+        syncSlotToPlayer(slot);
         return removed;
     }
 
@@ -75,6 +115,7 @@ public final class ScrollableInventoryStore implements Container {
     public void setItem(int slot, ItemStack stack) {
         state.setItem(slot, stack);
         InfiniteInventoryData.markDirty(owner);
+        syncSlotToPlayer(slot);
     }
 
     @Override
@@ -90,7 +131,16 @@ public final class ScrollableInventoryStore implements Container {
     public void clearContent() {
         for (int i = 0; i < getContainerSize(); i++) {
             state.setItem(i, ItemStack.EMPTY);
+            syncSlotToPlayer(i);
         }
         InfiniteInventoryData.markDirty(owner);
+    }
+
+    private void syncSlotToPlayer(int stateSlot) {
+        int inventorySlot = stateSlot + 9;
+        if (stateSlot < 0 || stateSlot >= 27 || inventorySlot >= owner.getInventory().items.size()) {
+            return;
+        }
+        owner.getInventory().setItem(inventorySlot, state.getItem(stateSlot).copy());
     }
 }

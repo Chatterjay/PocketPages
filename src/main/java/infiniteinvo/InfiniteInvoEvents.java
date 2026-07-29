@@ -78,8 +78,15 @@ public final class InfiniteInvoEvents {
 
     @SubscribeEvent
     public static void onPlayerTick(PlayerTickEvent.Post event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)
-                || player.tickCount % Config.LOCKED_ITEM_DROP_CHECK_INTERVAL_TICKS.get() != 0) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+
+        if (player.containerMenu instanceof ScrollableInventoryMenu menu) {
+            menu.syncNativeMirrorFromPlayer(player);
+        }
+
+        if (player.tickCount % Config.LOCKED_ITEM_DROP_CHECK_INTERVAL_TICKS.get() != 0) {
             return;
         }
 
@@ -103,7 +110,12 @@ public final class InfiniteInvoEvents {
 
     @SubscribeEvent
     public static void onItemPickupPre(ItemEntityPickupEvent.Pre event) {
-        if (!(event.getPlayer() instanceof ServerPlayer player) || hasVanillaInventorySpace(player.getInventory(), event.getItemEntity().getItem())) {
+        if (!(event.getPlayer() instanceof ServerPlayer player)) {
+            return;
+        }
+
+        boolean vanillaSpace = hasVanillaInventorySpace(player.getInventory(), event.getItemEntity().getItem());
+        if (vanillaSpace) {
             return;
         }
 

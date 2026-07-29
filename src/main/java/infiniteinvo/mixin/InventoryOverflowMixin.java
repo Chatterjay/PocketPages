@@ -1,6 +1,7 @@
 package infiniteinvo.mixin;
 
 import infiniteinvo.inventory.InfiniteInventoryData;
+import infiniteinvo.inventory.ScrollableInventoryMenu;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -10,6 +11,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /** Routes only the remainder of a normal player-inventory insertion to overflow. */
@@ -25,6 +27,51 @@ abstract class InventoryOverflowMixin {
 
         if (InfiniteInventoryData.insertOverflow(serverPlayer, stack) > 0) {
             callback.setReturnValue(true);
+        }
+        infiniteinvo$syncNativeMirror();
+    }
+
+    @Inject(method = "setItem", at = @At("RETURN"))
+    private void infiniteinvo$syncNativeSetItem(int index, ItemStack stack, CallbackInfo callback) {
+        if (player.containerMenu instanceof ScrollableInventoryMenu menu) {
+            menu.syncNativeMirrorSlotFromPlayer(player, index);
+        }
+    }
+
+    @Inject(method = "removeItem(II)Lnet/minecraft/world/item/ItemStack;", at = @At("RETURN"))
+    private void infiniteinvo$syncNativeRemoval(int index, int amount, CallbackInfoReturnable<ItemStack> callback) {
+        if (player.containerMenu instanceof ScrollableInventoryMenu menu) {
+            menu.syncNativeMirrorSlotFromPlayer(player, index);
+        }
+    }
+
+    @Inject(method = "removeItemNoUpdate", at = @At("RETURN"))
+    private void infiniteinvo$syncNativeRemovalNoUpdate(int index, CallbackInfoReturnable<ItemStack> callback) {
+        if (player.containerMenu instanceof ScrollableInventoryMenu menu) {
+            menu.syncNativeMirrorSlotFromPlayer(player, index);
+        }
+    }
+
+    @Inject(method = "removeItem(Lnet/minecraft/world/item/ItemStack;)V", at = @At("RETURN"))
+    private void infiniteinvo$syncNativeStackRemoval(ItemStack stack, CallbackInfo callback) {
+        infiniteinvo$syncNativeMirror();
+    }
+
+    @Inject(method = "clearContent", at = @At("RETURN"))
+    private void infiniteinvo$syncNativeClear(CallbackInfo callback) {
+        infiniteinvo$syncNativeMirror();
+    }
+
+    @Inject(method = "clearOrCountMatchingItems", at = @At("RETURN"))
+    private void infiniteinvo$syncNativeClearMatching(java.util.function.Predicate<ItemStack> predicate, int count,
+                                                      net.minecraft.world.Container container,
+                                                      CallbackInfoReturnable<Integer> callback) {
+        infiniteinvo$syncNativeMirror();
+    }
+
+    private void infiniteinvo$syncNativeMirror() {
+        if (player.containerMenu instanceof ScrollableInventoryMenu menu) {
+            menu.syncNativeMirrorFromPlayer(player);
         }
     }
 }

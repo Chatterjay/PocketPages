@@ -116,6 +116,15 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
         return store;
     }
 
+    /** Keeps the vanilla 27-slot main-inventory view aligned while this menu is active. */
+    public void syncNativeMirrorFromPlayer(Player player) {
+        store.syncNativeMirrorFromPlayer(player);
+    }
+
+    public void syncNativeMirrorSlotFromPlayer(Player player, int inventorySlot) {
+        store.syncNativeMirrorSlotFromPlayer(player, inventorySlot);
+    }
+
     public boolean unlockOne(Player player) {
         if (InfiniteInventoryData.unlockOne(player)) {
             data.set(0, InfiniteInventoryData.getUnlocked(player));
@@ -221,6 +230,11 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
 
         slot.onTake(player, stack);
         return copy;
+    }
+
+    @Override
+    public void clicked(int slotId, int button, ClickType clickType, Player player) {
+        super.clicked(slotId, button, clickType, player);
     }
 
     @Override
