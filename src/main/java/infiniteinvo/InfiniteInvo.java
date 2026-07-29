@@ -12,6 +12,10 @@ import infiniteinvo.network.CreativeInventoryPageRequestPayload;
 import infiniteinvo.network.ClearInfiniteInventoryPayload;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.repository.Pack;
+import net.minecraft.server.packs.repository.PackSource;
 import net.minecraft.world.flag.FeatureFlags;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.CreativeModeTab;
@@ -23,6 +27,7 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.attachment.AttachmentType;
+import net.neoforged.neoforge.event.AddPackFindersEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -67,6 +72,7 @@ public final class InfiniteInvo {
         LEGACY_ATTACHMENTS.register(modEventBus);
 
         modEventBus.addListener(this::addCreativeTabItems);
+        modEventBus.addListener(this::addBuiltInResourcePacks);
         modEventBus.addListener(this::registerPayloadHandlers);
         NeoForge.EVENT_BUS.register(InfiniteInvoEvents.class);
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
@@ -75,6 +81,18 @@ public final class InfiniteInvo {
     private void addCreativeTabItems(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
             event.accept(UNLOCK_SLOT);
+        }
+    }
+
+    private void addBuiltInResourcePacks(AddPackFindersEvent event) {
+        if (event.getPackType() == PackType.CLIENT_RESOURCES) {
+            event.addPackFinders(
+                    ResourceLocation.fromNamespaceAndPath(MODID, "resourcepacks/recolored_gui"),
+                    PackType.CLIENT_RESOURCES,
+                    Component.translatable("pack.infiniteinvo.recolored_gui"),
+                    PackSource.BUILT_IN,
+                    false,
+                    Pack.Position.TOP);
         }
     }
 

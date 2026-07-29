@@ -33,6 +33,17 @@ public final class ScrollableInventoryLayout {
     public static final int SCROLL_Y = GRID_BACKGROUND_Y;
     public static final int SCROLL_HEIGHT = VISIBLE_ROWS * SLOT_SIZE;
     public static final int SCROLL_KNOB_TRAVEL = SCROLL_HEIGHT - 8;
+    /** Reusable interior grid pieces from the original inventory background. */
+    public static final int FRAMELESS_BACKGROUND_SPRITE_X = 79;
+    public static final int HEADER_BACKGROUND_SPRITE_Y = 0;
+    public static final int FRAMELESS_BACKGROUND_SPRITE_Y = 3;
+    public static final int GRID_INTERIOR_SPRITE_X = 25;
+    public static final int GRID_TOP_INTERIOR_SPRITE_Y = GRID_BACKGROUND_Y;
+    public static final int GRID_MIDDLE_INTERIOR_SPRITE_Y = GRID_BACKGROUND_Y + SLOT_SIZE;
+    public static final int GRID_BOTTOM_INTERIOR_SPRITE_Y = GRID_BACKGROUND_Y + 2 * SLOT_SIZE;
+    public static final int HOVER_SPRITE_X = 112;
+    public static final int HOVER_SPRITE_Y = 166;
+    public static final int HOVER_SPRITE_SIZE = 16;
     public static final int CRAFTING_LABEL_X = 102;
     public static final int CRAFTING_LABEL_Y = 32;
     public static final int RECIPE_BOOK_BUTTON_X = 82;

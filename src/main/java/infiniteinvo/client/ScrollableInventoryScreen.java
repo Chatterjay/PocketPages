@@ -22,7 +22,6 @@ import java.util.List;
 
 public final class ScrollableInventoryScreen extends AbstractContainerScreen<ScrollableInventoryMenu> implements RecipeUpdateListener {
     private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(InfiniteInvo.MODID, "textures/gui/adjustable_gui.png");
-    private static final int BACKGROUND_COLOR = 0xFFC6C6C6;
     private final RecipeBookComponent recipeBookComponent = new RecipeBookComponent();
     private Button unlockButton;
     private ImageButton recipeBookButton;
@@ -112,24 +111,15 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
         g.blit(TEXTURE, left, top, 0, 0, 169, 137);
         for (int col = 0; col < ScrollableInventoryLayout.EXTRA_COLUMNS; col++) {
             int x = left + 169 + ScrollableInventoryLayout.SLOT_SIZE * col;
-            if (col == 0) {
-                // The moved result slot ends in this first extension column.
-                g.blit(TEXTURE, x, top, 169, 0, 18, ScrollableInventoryLayout.GRID_BACKGROUND_Y);
-            } else {
-                drawExtensionHeaderBackground(g, x, top);
-            }
-            g.blit(TEXTURE, x, top + ScrollableInventoryLayout.GRID_BACKGROUND_Y,
-                    169, ScrollableInventoryLayout.GRID_BACKGROUND_Y, 18, 54);
+            blitHeaderBackground(g, x, top, ScrollableInventoryLayout.SLOT_SIZE,
+                    ScrollableInventoryLayout.GRID_BACKGROUND_Y);
         }
-        for (int row = 0; row < ScrollableInventoryLayout.EXTRA_ROWS; row++) {
-            g.blit(TEXTURE, left, top + 137 + ScrollableInventoryLayout.SLOT_SIZE * row, 0, 119, 169, 18);
-        }
-        for (int col = 0; col < ScrollableInventoryLayout.EXTRA_COLUMNS; col++) {
-            for (int row = 0; row < ScrollableInventoryLayout.EXTRA_ROWS; row++) {
-                g.blit(TEXTURE, left + 169 + ScrollableInventoryLayout.SLOT_SIZE * col,
-                        top + 137 + ScrollableInventoryLayout.SLOT_SIZE * row, 7, 83, 18, 18);
-            }
-        }
+        // The arrow and result slot cross the original 169-pixel background edge.
+        g.blit(TEXTURE, left + 169, top + ScrollableInventoryLayout.RESULT_Y - 1,
+                169, ScrollableInventoryLayout.RESULT_Y - 1,
+                ScrollableInventoryLayout.SLOT_SIZE, ScrollableInventoryLayout.SLOT_SIZE);
+
+        drawAdditionalGridSlots(g, left, top);
         int scrollbarWidth = menu.getMaxScroll() > 0 ? 0 : 8;
         int scrollbarX = left + ScrollableInventoryLayout.SCROLL_X;
         g.blit(TEXTURE, scrollbarX, top, 187, 0, 2, 119);
@@ -142,7 +132,6 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
         int scrollbarBottomY = top + 119 + ScrollableInventoryLayout.EXTRA_ROWS * ScrollableInventoryLayout.SLOT_SIZE;
         g.blit(TEXTURE, scrollbarX, scrollbarBottomY, 187, 119, 2, 18);
         g.blit(TEXTURE, scrollbarX + 2, scrollbarBottomY, 189 + scrollbarWidth, 119, 13 - scrollbarWidth, 18);
-
         int hotbarBackgroundY = top + 137 + ScrollableInventoryLayout.EXTRA_ROWS * ScrollableInventoryLayout.SLOT_SIZE;
         g.blit(TEXTURE, left, hotbarBackgroundY, 0, 137, 169, 29);
         for (int col = 0; col < ScrollableInventoryLayout.EXTRA_COLUMNS; col++) {
@@ -156,11 +145,67 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
 
     }
 
-    private static void drawExtensionHeaderBackground(GuiGraphics graphics, int x, int y) {
-        graphics.fill(x, y, x + ScrollableInventoryLayout.SLOT_SIZE, y + 1, 0xFF000000);
-        graphics.fill(x, y + 1, x + ScrollableInventoryLayout.SLOT_SIZE, y + 3, 0xFFFFFFFF);
-        graphics.fill(x, y + 3, x + ScrollableInventoryLayout.SLOT_SIZE,
-                y + ScrollableInventoryLayout.GRID_BACKGROUND_Y, BACKGROUND_COLOR);
+    private static void blitHeaderBackground(GuiGraphics graphics, int x, int y, int width, int height) {
+        int topBorderHeight = Math.min(ScrollableInventoryLayout.FRAMELESS_BACKGROUND_SPRITE_Y, height);
+        graphics.blit(TEXTURE, x, y,
+                ScrollableInventoryLayout.FRAMELESS_BACKGROUND_SPRITE_X,
+                ScrollableInventoryLayout.HEADER_BACKGROUND_SPRITE_Y,
+                width, topBorderHeight);
+        for (int offsetY = topBorderHeight; offsetY < height; offsetY += ScrollableInventoryLayout.SLOT_SIZE) {
+            int tileHeight = Math.min(ScrollableInventoryLayout.SLOT_SIZE, height - offsetY);
+            graphics.blit(TEXTURE, x, y + offsetY,
+                    ScrollableInventoryLayout.FRAMELESS_BACKGROUND_SPRITE_X,
+                    ScrollableInventoryLayout.FRAMELESS_BACKGROUND_SPRITE_Y,
+                    width, tileHeight);
+        }
+    }
+
+    private void drawAdditionalGridSlots(GuiGraphics graphics, int left, int top) {
+        int gridX = left + ScrollableInventoryLayout.GRID_BACKGROUND_X;
+        int gridY = top + ScrollableInventoryLayout.GRID_BACKGROUND_Y;
+        int slotSize = ScrollableInventoryLayout.SLOT_SIZE;
+        // Insert copies of the middle row before the original bottom row.
+        // This leaves #25/#34 as the permanent bottom-left/bottom-right edge.
+        for (int row = 2; row < ScrollableInventoryLayout.VISIBLE_ROWS - 1; row++) {
+            graphics.blit(TEXTURE, left, gridY + row * slotSize,
+                    0, ScrollableInventoryLayout.GRID_BACKGROUND_Y + slotSize, 169, slotSize);
+        }
+        if (ScrollableInventoryLayout.VISIBLE_ROWS > 3) {
+            graphics.blit(TEXTURE, left,
+                    gridY + (ScrollableInventoryLayout.VISIBLE_ROWS - 1) * slotSize,
+                    0, ScrollableInventoryLayout.GRID_BACKGROUND_Y + 2 * slotSize, 169, slotSize);
+        }
+
+        // Reuse the matching row's interior slot while #14/#24/#34 remain
+        // the right edge of their respective rows.
+        for (int row = 0; row < ScrollableInventoryLayout.VISIBLE_ROWS; row++) {
+            for (int col = 9; col < ScrollableInventoryLayout.COLUMNS - 1; col++) {
+                int x = gridX + col * slotSize;
+                int y = gridY + row * slotSize;
+                if (row == 0) {
+                    blitGridInterior(graphics, x, y, ScrollableInventoryLayout.GRID_TOP_INTERIOR_SPRITE_Y);
+                } else if (row == ScrollableInventoryLayout.VISIBLE_ROWS - 1) {
+                    blitGridInterior(graphics, x, y, ScrollableInventoryLayout.GRID_BOTTOM_INTERIOR_SPRITE_Y);
+                } else {
+                    blitGridInterior(graphics, x, y, ScrollableInventoryLayout.GRID_MIDDLE_INTERIOR_SPRITE_Y);
+                }
+            }
+            int sourceY = row == 0
+                    ? ScrollableInventoryLayout.GRID_BACKGROUND_Y
+                    : row == ScrollableInventoryLayout.VISIBLE_ROWS - 1
+                            ? ScrollableInventoryLayout.GRID_BACKGROUND_Y + 2 * slotSize
+                            : ScrollableInventoryLayout.GRID_BACKGROUND_Y + slotSize;
+            graphics.blit(TEXTURE, gridX + (ScrollableInventoryLayout.COLUMNS - 1) * slotSize,
+                    gridY + row * slotSize, 169, sourceY, slotSize, slotSize);
+        }
+    }
+
+    private static void blitGridInterior(GuiGraphics graphics, int x, int y, int spriteY) {
+        graphics.blit(TEXTURE, x, y,
+                ScrollableInventoryLayout.GRID_INTERIOR_SPRITE_X,
+                spriteY,
+                ScrollableInventoryLayout.SLOT_SIZE,
+                ScrollableInventoryLayout.SLOT_SIZE);
     }
 
     @Override
@@ -178,14 +223,14 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
                 int slotIndex = col + (row + menu.getScrollPos()) * menu.getVisibleColumns();
                 if (slotIndex >= menu.getStore().getContainerSize()) {
                     guiGraphics.blit(TEXTURE,
-                            ScrollableInventoryLayout.GRID_BACKGROUND_X + col * ScrollableInventoryLayout.SLOT_SIZE,
-                            ScrollableInventoryLayout.GRID_BACKGROUND_Y + row * ScrollableInventoryLayout.SLOT_SIZE,
-                            0, 166, 18, 18);
+                            ScrollableInventoryLayout.GRID_BACKGROUND_X + col * ScrollableInventoryLayout.SLOT_SIZE + 1,
+                            ScrollableInventoryLayout.GRID_BACKGROUND_Y + row * ScrollableInventoryLayout.SLOT_SIZE + 1,
+                            1, 167, 16, 16);
                 } else if (slotIndex >= menu.getUnlockedSlots()) {
                     guiGraphics.blit(TEXTURE,
-                            ScrollableInventoryLayout.GRID_BACKGROUND_X + col * ScrollableInventoryLayout.SLOT_SIZE,
-                            ScrollableInventoryLayout.GRID_BACKGROUND_Y + row * ScrollableInventoryLayout.SLOT_SIZE,
-                            18, 166, 18, 18);
+                            ScrollableInventoryLayout.GRID_BACKGROUND_X + col * ScrollableInventoryLayout.SLOT_SIZE + 1,
+                            ScrollableInventoryLayout.GRID_BACKGROUND_Y + row * ScrollableInventoryLayout.SLOT_SIZE + 1,
+                            19, 167, 16, 16);
                 }
             }
         }
@@ -195,9 +240,24 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
     @Override
     protected void renderSlotHighlight(GuiGraphics graphics, net.minecraft.world.inventory.Slot slot,
                                        int mouseX, int mouseY, float partialTick) {
-        if (!isInfiniteInvoLockedSlot(slot)) {
+        if (isInfiniteInvoLockedSlot(slot) || !slot.isHighlightable()) {
+            return;
+        }
+        if (isRecoloredGuiPackEnabled()) {
+            graphics.blit(TEXTURE, slot.x, slot.y,
+                    ScrollableInventoryLayout.HOVER_SPRITE_X,
+                    ScrollableInventoryLayout.HOVER_SPRITE_Y,
+                    ScrollableInventoryLayout.HOVER_SPRITE_SIZE,
+                    ScrollableInventoryLayout.HOVER_SPRITE_SIZE);
+        } else {
             super.renderSlotHighlight(graphics, slot, mouseX, mouseY, partialTick);
         }
+    }
+
+    private boolean isRecoloredGuiPackEnabled() {
+        return minecraft != null && minecraft.getResourceManager().getResource(TEXTURE)
+                .map(resource -> resource.sourcePackId().contains("recolored_gui"))
+                .orElse(false);
     }
 
     @Override
