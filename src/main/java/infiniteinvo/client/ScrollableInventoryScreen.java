@@ -271,13 +271,28 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (scrollY != 0 && minecraft != null && minecraft.gameMode != null && menu.getMaxScroll() > 0) {
+        if (scrollY != 0 && minecraft != null && minecraft.gameMode != null && menu.getMaxScroll() > 0
+                && isOverScrollableInventory(mouseX, mouseY)) {
+            if ((Object) this instanceof QuickCraftCancellation cancellation) {
+                cancellation.infiniteinvo$cancelQuickCraft();
+            }
             int id = scrollY > 0 ? 1 : 2;
             minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id);
             menu.updateScroll(scrollY > 0 ? -1 : 1);
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    /** Keeps normal screen scrolling available outside the extended inventory grid. */
+    private boolean isOverScrollableInventory(double mouseX, double mouseY) {
+        int gridLeft = leftPos + ScrollableInventoryLayout.GRID_X - 1;
+        int gridTop = topPos + ScrollableInventoryLayout.GRID_Y - 1;
+        int gridWidth = ScrollableInventoryLayout.COLUMNS * ScrollableInventoryLayout.SLOT_SIZE;
+        int gridHeight = ScrollableInventoryLayout.VISIBLE_ROWS * ScrollableInventoryLayout.SLOT_SIZE;
+        return (mouseX >= gridLeft && mouseX < gridLeft + gridWidth
+                && mouseY >= gridTop && mouseY < gridTop + gridHeight)
+                || isOverScrollbar(mouseX, mouseY);
     }
 
     @Override
@@ -457,6 +472,9 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
         int delta = target - menu.getScrollPos();
         if (delta == 0 || minecraft == null || minecraft.gameMode == null) {
             return;
+        }
+        if ((Object) this instanceof QuickCraftCancellation cancellation) {
+            cancellation.infiniteinvo$cancelQuickCraft();
         }
         int buttonId = delta > 0 ? 2 : 1;
         for (int i = 0; i < Math.abs(delta); i++) {

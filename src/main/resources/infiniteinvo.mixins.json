@@ -11,6 +11,7 @@
   ],
   "client": [
     "client.ClientMappedPlayerSlotLockMixin",
+    "client.ClientQuickCraftResetMixin",
     "client.ClientInventoryDropQueueMixin",
     "client.IpnAreaTypesMixin",
     "client.IpnLockSlotsHandlerMixin"

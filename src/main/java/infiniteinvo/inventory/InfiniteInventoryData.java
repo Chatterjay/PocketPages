@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -133,6 +134,50 @@ public final class InfiniteInventoryData {
             markDirty(player);
         }
         return inserted;
+    }
+
+    /**
+     * Extends Inventory.clearOrCountMatchingItems to virtual slots which are
+     * not currently represented by a vanilla inventory page.
+     */
+    public static int clearOrCountMatchingOverflow(ServerPlayer player, Predicate<ItemStack> predicate,
+                                                    int maxCount, int excludedStart, int excludedEnd) {
+        InfiniteInventoryState state = state(player);
+        boolean simulate = maxCount == 0;
+        int matched = 0;
+        boolean changed = false;
+
+        int firstVirtualSlot = excludedStart >= 0 ? 0 : 27;
+        for (int slot = firstVirtualSlot; slot < getUnlocked(player); slot++) {
+            if (slot >= excludedStart && slot < excludedEnd) {
+                continue;
+            }
+            ItemStack stack = state.getItem(slot);
+            if (stack.isEmpty() || !predicate.test(stack)) {
+                continue;
+            }
+            if (simulate) {
+                matched += stack.getCount();
+                continue;
+            }
+            if (maxCount >= 0 && matched >= maxCount) {
+                break;
+            }
+
+            int removed = maxCount < 0 ? stack.getCount() : Math.min(maxCount - matched, stack.getCount());
+            matched += removed;
+            if (removed == stack.getCount()) {
+                state.setItem(slot, ItemStack.EMPTY);
+            } else {
+                state.setItem(slot, stack.copyWithCount(stack.getCount() - removed));
+            }
+            changed = true;
+        }
+
+        if (changed) {
+            markDirty(player);
+        }
+        return matched;
     }
 
     /** Drops legacy stacks that remain in slots which have since become locked. */

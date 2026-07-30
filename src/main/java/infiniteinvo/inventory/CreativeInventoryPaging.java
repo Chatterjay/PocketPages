@@ -62,6 +62,19 @@ public final class CreativeInventoryPaging {
         sendPage(player, row, state);
     }
 
+    /**
+     * Persists the page currently mapped onto slots 9 through 35 and returns
+     * its virtual start index, or -1 while no page is mapped.
+     */
+    public static int captureMappedPage(ServerPlayer player) {
+        Integer row = ACTIVE_ROWS.get(player.getUUID());
+        if (row == null) {
+            return -1;
+        }
+        storeMappedPage(player, InfiniteInventoryData.state(player), row);
+        return row * 9;
+    }
+
     /** Drops locked stacks from the physical page currently mapped onto the vanilla inventory. */
     public static void dropMappedLockedItems(ServerPlayer player) {
         Integer row = ACTIVE_ROWS.get(player.getUUID());

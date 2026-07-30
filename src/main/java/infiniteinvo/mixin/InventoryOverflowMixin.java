@@ -1,6 +1,7 @@
 package infiniteinvo.mixin;
 
 import infiniteinvo.inventory.InfiniteInventoryData;
+import infiniteinvo.inventory.CreativeInventoryPaging;
 import infiniteinvo.inventory.ScrollableInventoryMenu;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
@@ -62,10 +63,21 @@ abstract class InventoryOverflowMixin {
         infiniteinvo$syncNativeMirror();
     }
 
-    @Inject(method = "clearOrCountMatchingItems", at = @At("RETURN"))
+    @Inject(method = "clearOrCountMatchingItems", at = @At("RETURN"), cancellable = true)
     private void infiniteinvo$syncNativeClearMatching(java.util.function.Predicate<ItemStack> predicate, int count,
                                                       net.minecraft.world.Container container,
                                                       CallbackInfoReturnable<Integer> callback) {
+        if (player instanceof ServerPlayer serverPlayer) {
+            int nativeCleared = callback.getReturnValue();
+            int mappedStart = CreativeInventoryPaging.captureMappedPage(serverPlayer);
+            int overflowCleared = 0;
+            if (count == 0 || count < 0 || nativeCleared < count) {
+                int remaining = count == 0 ? 0 : count < 0 ? -1 : count - nativeCleared;
+                overflowCleared = InfiniteInventoryData.clearOrCountMatchingOverflow(serverPlayer, predicate, remaining,
+                        mappedStart, mappedStart < 0 ? -1 : mappedStart + CreativeInventoryPaging.PAGE_SIZE);
+            }
+            callback.setReturnValue(nativeCleared + overflowCleared);
+        }
         infiniteinvo$syncNativeMirror();
     }
 

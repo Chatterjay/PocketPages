@@ -18,7 +18,6 @@ import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.event.ContainerScreenEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -29,6 +28,7 @@ public final class ContainerInventoryPagingController {
             InfiniteInvo.MODID, "textures/gui/adjustable_gui.png");
     private static final int KNOB_SIZE = 8;
     private static final int TRACK_HEIGHT = 54;
+    private static final int PAGE_REQUEST_DEBOUNCE_TICKS = 2;
     private static final Map<AbstractContainerScreen<?>, State> STATES = new WeakHashMap<>();
     private static int lastContainerRow;
 
@@ -67,27 +67,34 @@ public final class ContainerInventoryPagingController {
         if (!state.open) {
             beginOpening(screen, grid);
         }
-        if (state.awaitingPage) {
-            hidePendingPageItems(event.getGuiGraphics(), grid);
-        }
-        drawScrollbar(event.getGuiGraphics(), screen, grid, state.row);
-        drawLockedSlots(event.getGuiGraphics(), grid, state.row, state.unlockedSlots);
+        drawScrollbar(event.getGuiGraphics(), screen, grid, state.requestedRow);
+        drawLockedSlots(event.getGuiGraphics(), grid, state.displayedRow, state.unlockedSlots);
     }
 
     public static void mouseScrolled(ScreenEvent.MouseScrolled.Pre event) {
         State state = stateFor(event.getScreen());
-        if (state == null || event.getScrollDeltaY() == 0.0D) {
+        if (state == null || event.getScrollDeltaY() == 0.0D
+                || !(event.getScreen() instanceof AbstractContainerScreen<?> screen)
+                || !isOverMappedInventory(screen, state.grid, event.getMouseX(), event.getMouseY())) {
             return;
         }
 
-        request(state, state.row + (event.getScrollDeltaY() < 0.0D ? 1 : -1), false);
+        cancelQuickCraft(event.getScreen());
+        request(state, state.requestedRow + (event.getScrollDeltaY() < 0.0D ? 1 : -1), false);
         event.setCanceled(true);
     }
 
     public static void mousePressed(ScreenEvent.MouseButtonPressed.Pre event) {
         State state = stateFor(event.getScreen());
-        if (state == null || event.getButton() != 0 || !(event.getScreen() instanceof AbstractContainerScreen<?> screen)
-                || !isOverScrollbar(screen, state.grid, event.getMouseX(), event.getMouseY())) {
+        if (state == null || !(event.getScreen() instanceof AbstractContainerScreen<?> screen)) {
+            return;
+        }
+
+        if (state.awaitingPage || state.requestQueued) {
+            event.setCanceled(true);
+            return;
+        }
+        if (event.getButton() != 0 || !isOverScrollbar(screen, state.grid, event.getMouseX(), event.getMouseY())) {
             return;
         }
 
@@ -111,7 +118,23 @@ public final class ContainerInventoryPagingController {
         State state = stateFor(event.getScreen());
         if (state != null && state.dragging && event.getButton() == 0) {
             state.dragging = false;
+            state.requestDelay = 0;
+            dispatchQueuedRequest(state);
             event.setCanceled(true);
+        }
+    }
+
+    /** Coalesces rapid wheel/drag updates before they change the server-side page mirror. */
+    public static void tick() {
+        for (State state : List.copyOf(STATES.values())) {
+            if (!state.open || state.awaitingPage || !state.requestQueued) {
+                continue;
+            }
+            if (state.requestDelay > 0) {
+                state.requestDelay--;
+                continue;
+            }
+            dispatchQueuedRequest(state);
         }
     }
 
@@ -121,7 +144,7 @@ public final class ContainerInventoryPagingController {
             if (state != null && state.open) {
                 state.open = false;
                 if (state.pageLocksApplied) {
-                    IpnCompat.captureMappedPageLocks(state.row);
+                    IpnCompat.captureMappedPageLocks(state.displayedRow);
                     IpnCompat.applyMappedPageLocks(0);
                 }
                 if (!Config.REMEMBER_CONTAINER_PAGE.get()) {
@@ -163,7 +186,7 @@ public final class ContainerInventoryPagingController {
         return new Grid(slots.getFirst().x, slots.getFirst().y, rightmostSlotX, List.copyOf(slots));
     }
 
-    /** Returns false for an out-of-date page response that would overwrite a newer page request. */
+    /** Returns false for a response that does not match the page currently awaited by this screen. */
     public static boolean shouldApplyPageData(int row) {
         if (!(Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> screen)
                 || screen instanceof CreativeModeInventoryScreen || screen instanceof ScrollableInventoryScreen) {
@@ -171,7 +194,8 @@ public final class ContainerInventoryPagingController {
         }
 
         State state = STATES.get(screen);
-        return state == null || !state.open || !state.awaitingPage || state.requestedRow == row;
+        return state != null && state.open
+                && (state.awaitingPage ? state.inFlightRow == row : state.displayedRow == row);
     }
 
     private static void beginOpening(AbstractContainerScreen<?> screen, Grid grid) {
@@ -185,53 +209,44 @@ public final class ContainerInventoryPagingController {
 
     private static void request(State state, int row, boolean force) {
         int target = Math.max(0, Math.min(row, CreativeInventoryPaging.maxRow()));
-        if (!force && target == state.row) {
+        if (!force && target == state.requestedRow
+                && (state.requestQueued || state.awaitingPage || target == state.displayedRow)) {
             return;
         }
-        if (state.pageLocksApplied) {
-            IpnCompat.captureMappedPageLocks(state.row);
-        }
-        state.row = target;
         state.requestedRow = target;
-        state.awaitingPage = true;
+        if (target == state.displayedRow && !state.awaitingPage) {
+            state.requestQueued = false;
+            return;
+        }
+        state.requestQueued = true;
+        state.requestDelay = force ? 0 : PAGE_REQUEST_DEBOUNCE_TICKS;
         if (Config.REMEMBER_CONTAINER_PAGE.get()) {
             lastContainerRow = target;
         }
-        clearNativeStorageSlots();
-        PacketDistributor.sendToServer(new CreativeInventoryPageRequestPayload(target));
+        if (force) {
+            dispatchQueuedRequest(state);
+        }
     }
 
     public static void receivePageData(int row, int unlocked) {
         if (Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> screen) {
             State state = STATES.get(screen);
             if (state != null && state.open) {
-                if (state.awaitingPage && state.requestedRow != row) {
+                if (state.awaitingPage && state.inFlightRow != row) {
                     return;
                 }
-                state.row = row;
+                state.displayedRow = row;
                 state.unlockedSlots = unlocked;
                 IpnCompat.applyMappedPageLocks(row);
                 state.pageLocksApplied = true;
                 state.awaitingPage = false;
+                state.inFlightRow = -1;
+                if (state.requestedRow != row) {
+                    state.requestQueued = true;
+                    state.requestDelay = 0;
+                    dispatchQueuedRequest(state);
+                }
             }
-        }
-    }
-
-    private static void clearNativeStorageSlots() {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null) {
-            return;
-        }
-
-        Inventory inventory = minecraft.player.getInventory();
-        for (int index = 9; index < 36; index++) {
-            inventory.setItem(index, ItemStack.EMPTY);
-        }
-    }
-
-    private static void hidePendingPageItems(GuiGraphics graphics, Grid grid) {
-        for (Slot slot : grid.slots) {
-            graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, 0xFF8B8B8B);
         }
     }
 
@@ -244,19 +259,7 @@ public final class ContainerInventoryPagingController {
         }
 
         State state = STATES.get(screen);
-        return state == null || !state.open || inventorySlot - 9 + state.row * 9 < state.unlockedSlots;
-    }
-
-    /** Hides physical slots until the server confirms the requested virtual page. */
-    public static boolean isAwaitingMappedPage(Inventory inventory, int inventorySlot) {
-        if (inventorySlot < 9 || inventorySlot >= 36 || Minecraft.getInstance().player == null
-                || inventory.player != Minecraft.getInstance().player
-                || !(Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> screen)) {
-            return false;
-        }
-
-        State state = STATES.get(screen);
-        return state != null && state.open && state.awaitingPage;
+        return state == null || !state.open || inventorySlot - 9 + state.displayedRow * 9 < state.unlockedSlots;
     }
 
     private static void requestFromMouse(State state, AbstractContainerScreen<?> screen, double mouseY) {
@@ -265,10 +268,39 @@ public final class ContainerInventoryPagingController {
         request(state, row, false);
     }
 
+    private static void cancelQuickCraft(Screen screen) {
+        if (screen instanceof QuickCraftCancellation cancellation) {
+            cancellation.infiniteinvo$cancelQuickCraft();
+        }
+    }
+
+    private static void dispatchQueuedRequest(State state) {
+        if (!state.open || state.awaitingPage || !state.requestQueued) {
+            return;
+        }
+        if (state.pageLocksApplied) {
+            IpnCompat.captureMappedPageLocks(state.displayedRow);
+        }
+        state.inFlightRow = state.requestedRow;
+        state.awaitingPage = true;
+        state.requestQueued = false;
+        PacketDistributor.sendToServer(new CreativeInventoryPageRequestPayload(state.inFlightRow));
+    }
+
     private static boolean isOverScrollbar(AbstractContainerScreen<?> screen, Grid grid, double mouseX, double mouseY) {
         int x = screen.getGuiLeft() + grid.rightmostSlotX + 19;
         int y = screen.getGuiTop() + grid.y - 1;
         return mouseX >= x && mouseX < x + 8 && mouseY >= y && mouseY < y + TRACK_HEIGHT;
+    }
+
+    private static boolean isOverMappedInventory(AbstractContainerScreen<?> screen, Grid grid, double mouseX, double mouseY) {
+        int left = screen.getGuiLeft() + grid.x - 1;
+        int top = screen.getGuiTop() + grid.y - 1;
+        int width = grid.rightmostSlotX - grid.x + 18;
+        int height = 3 * 18;
+        return (mouseX >= left && mouseX < left + width
+                && mouseY >= top && mouseY < top + height)
+                || isOverScrollbar(screen, grid, mouseX, mouseY);
     }
 
     private static void drawScrollbar(GuiGraphics graphics, AbstractContainerScreen<?> screen, Grid grid, int row) {
@@ -295,12 +327,15 @@ public final class ContainerInventoryPagingController {
     }
 
     private static final class State {
-        private int row;
+        private int displayedRow;
         private int requestedRow;
+        private int inFlightRow = -1;
         private boolean open;
         private boolean pageLocksApplied;
         private boolean awaitingPage;
+        private boolean requestQueued;
         private boolean dragging;
+        private int requestDelay;
         // The server will replace this with the authoritative unlock count.
         // Rendering no lock marker until then is preferable to a false locked flash.
         private int unlockedSlots = Integer.MAX_VALUE;

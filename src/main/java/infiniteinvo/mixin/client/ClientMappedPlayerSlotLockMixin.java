@@ -26,11 +26,4 @@ abstract class ClientMappedPlayerSlotLockMixin {
         }
     }
 
-    @Inject(method = "getItem", at = @At("HEAD"), cancellable = true)
-    private void infiniteinvo$hideUnconfirmedMappedPage(CallbackInfoReturnable<ItemStack> callback) {
-        if (container instanceof Inventory inventory
-                && ContainerInventoryPagingController.isAwaitingMappedPage(inventory, slot)) {
-            callback.setReturnValue(ItemStack.EMPTY);
-        }
-    }
 }

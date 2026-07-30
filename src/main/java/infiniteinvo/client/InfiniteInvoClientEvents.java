@@ -11,6 +11,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.event.ContainerScreenEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 @EventBusSubscriber(modid = InfiniteInvo.MODID, value = Dist.CLIENT)
@@ -68,6 +69,12 @@ public final class InfiniteInvoClientEvents {
     public static void onScreenClosing(ScreenEvent.Closing event) {
         CreativeInventoryController.closing(event);
         ContainerInventoryPagingController.closing(event);
+    }
+
+    @SubscribeEvent
+    public static void onClientTick(ClientTickEvent.Post event) {
+        CreativeInventoryController.tick();
+        ContainerInventoryPagingController.tick();
     }
 
     @SubscribeEvent

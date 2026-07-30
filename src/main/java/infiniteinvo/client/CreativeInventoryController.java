@@ -28,6 +28,7 @@ public final class CreativeInventoryController {
     private static final int TRACK_WIDTH = 8;
     private static final int TRACK_HEIGHT = 54;
     private static final int KNOB_SIZE = 8;
+    private static final int PAGE_REQUEST_DEBOUNCE_TICKS = 2;
     private static final Map<CreativeModeInventoryScreen, State> STATES = new WeakHashMap<>();
 
     private CreativeInventoryController() {
@@ -51,22 +52,33 @@ public final class CreativeInventoryController {
             IpnCompat.migrateNativeStorageLocks();
             request(state, 0, true);
         }
-        drawScrollbar(event.getGuiGraphics(), screen, state.row);
+        drawScrollbar(event.getGuiGraphics(), screen, state.requestedRow);
     }
 
     public static void mouseScrolled(ScreenEvent.MouseScrolled.Pre event) {
         State state = stateForOpenCreativeInventory(event.getScreen());
-        if (state == null || event.getScrollDeltaY() == 0.0D) {
+        if (state == null || event.getScrollDeltaY() == 0.0D
+                || !(event.getScreen() instanceof CreativeModeInventoryScreen screen)
+                || !isOverMappedInventory(screen, event.getMouseX(), event.getMouseY())) {
             return;
         }
 
-        request(state, state.row + (event.getScrollDeltaY() < 0.0D ? 1 : -1), false);
+        cancelQuickCraft(event.getScreen());
+        request(state, state.requestedRow + (event.getScrollDeltaY() < 0.0D ? 1 : -1), false);
         event.setCanceled(true);
     }
 
     public static void mousePressed(ScreenEvent.MouseButtonPressed.Pre event) {
         State state = stateForOpenCreativeInventory(event.getScreen());
-        if (state == null || event.getButton() != 0 || !(event.getScreen() instanceof CreativeModeInventoryScreen screen)) {
+        if (state == null || !(event.getScreen() instanceof CreativeModeInventoryScreen screen)) {
+            return;
+        }
+
+        if (state.awaitingPage || state.requestQueued) {
+            event.setCanceled(true);
+            return;
+        }
+        if (event.getButton() != 0) {
             return;
         }
 
@@ -112,7 +124,23 @@ public final class CreativeInventoryController {
         State state = stateForOpenCreativeInventory(event.getScreen());
         if (state != null && state.dragging && event.getButton() == 0) {
             state.dragging = false;
+            state.requestDelay = 0;
+            dispatchQueuedRequest(state);
             event.setCanceled(true);
+        }
+    }
+
+    /** Coalesces rapid wheel and drag updates before replacing the native inventory page. */
+    public static void tick() {
+        for (State state : List.copyOf(STATES.values())) {
+            if (!state.open || state.awaitingPage || !state.requestQueued) {
+                continue;
+            }
+            if (state.requestDelay > 0) {
+                state.requestDelay--;
+                continue;
+            }
+            dispatchQueuedRequest(state);
         }
     }
 
@@ -127,7 +155,18 @@ public final class CreativeInventoryController {
 
     public static void applyPage(int row, int unlockedSlots, List<ItemStack> stacks) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null || !ContainerInventoryPagingController.shouldApplyPageData(row)) {
+        if (minecraft.player == null) {
+            return;
+        }
+
+        State creativeState = null;
+        if (minecraft.screen instanceof CreativeModeInventoryScreen screen) {
+            creativeState = STATES.get(screen);
+            if (creativeState == null || !creativeState.open
+                    || (creativeState.awaitingPage ? creativeState.inFlightRow != row : creativeState.displayedRow != row)) {
+                return;
+            }
+        } else if (!ContainerInventoryPagingController.shouldApplyPageData(row)) {
             return;
         }
 
@@ -137,13 +176,19 @@ public final class CreativeInventoryController {
         }
         InfiniteInventoryData.applyClientPage(minecraft.player, row, unlockedSlots, stacks);
         IpnCompat.applyMappedPageLocks(row);
-        if (minecraft.screen instanceof CreativeModeInventoryScreen screen) {
-            State state = STATES.get(screen);
-            if (state != null && state.open) {
-                state.pageLocksApplied = true;
+        if (creativeState != null) {
+            creativeState.displayedRow = row;
+            creativeState.pageLocksApplied = true;
+            creativeState.awaitingPage = false;
+            creativeState.inFlightRow = -1;
+            if (creativeState.requestedRow != row) {
+                creativeState.requestQueued = true;
+                creativeState.requestDelay = 0;
+                dispatchQueuedRequest(creativeState);
             }
+        } else {
+            ContainerInventoryPagingController.receivePageData(row, unlockedSlots);
         }
-        ContainerInventoryPagingController.receivePageData(row, unlockedSlots);
     }
 
     private static State stateForOpenCreativeInventory(net.minecraft.client.gui.screens.Screen screen) {
@@ -156,14 +201,20 @@ public final class CreativeInventoryController {
 
     private static void request(State state, int row, boolean force) {
         int target = Math.max(0, Math.min(row, CreativeInventoryPaging.maxRow()));
-        if (!force && target == state.row) {
+        if (!force && target == state.requestedRow
+                && (state.requestQueued || state.awaitingPage || target == state.displayedRow)) {
             return;
         }
-        if (state.pageLocksApplied) {
-            IpnCompat.captureMappedPageLocks(state.row);
+        state.requestedRow = target;
+        if (target == state.displayedRow && !state.awaitingPage) {
+            state.requestQueued = false;
+            return;
         }
-        state.row = target;
-        PacketDistributor.sendToServer(new CreativeInventoryPageRequestPayload(target));
+        state.requestQueued = true;
+        state.requestDelay = force ? 0 : PAGE_REQUEST_DEBOUNCE_TICKS;
+        if (force) {
+            dispatchQueuedRequest(state);
+        }
     }
 
     private static void requestFromMouse(State state, CreativeModeInventoryScreen screen, double mouseY) {
@@ -172,11 +223,49 @@ public final class CreativeInventoryController {
         request(state, row, false);
     }
 
+    private static void cancelQuickCraft(net.minecraft.client.gui.screens.Screen screen) {
+        if (screen instanceof QuickCraftCancellation cancellation) {
+            cancellation.infiniteinvo$cancelQuickCraft();
+        }
+    }
+
     private static boolean isOverScrollbar(CreativeModeInventoryScreen screen, double mouseX, double mouseY) {
         int left = screen.getGuiLeft() + TRACK_X;
         int top = screen.getGuiTop() + TRACK_Y;
         return mouseX >= left && mouseX < left + TRACK_WIDTH
                 && mouseY >= top && mouseY < top + TRACK_HEIGHT;
+    }
+
+    private static boolean isOverMappedInventory(CreativeModeInventoryScreen screen, double mouseX, double mouseY) {
+        boolean overScrollbar = isOverScrollbar(screen, mouseX, mouseY);
+        if (overScrollbar || Minecraft.getInstance().player == null) {
+            return overScrollbar;
+        }
+
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        int slots = 0;
+        for (Slot slot : screen.getMenu().slots) {
+            if (slot.container != Minecraft.getInstance().player.getInventory()
+                    || slot.getContainerSlot() < 9 || slot.getContainerSlot() >= 36) {
+                continue;
+            }
+            minX = Math.min(minX, slot.x);
+            minY = Math.min(minY, slot.y);
+            maxX = Math.max(maxX, slot.x + 16);
+            maxY = Math.max(maxY, slot.y + 16);
+            slots++;
+        }
+        if (slots != CreativeInventoryPaging.PAGE_SIZE) {
+            return false;
+        }
+
+        double relativeX = mouseX - screen.getGuiLeft();
+        double relativeY = mouseY - screen.getGuiTop();
+        return relativeX >= minX - 1 && relativeX < maxX + 1
+                && relativeY >= minY - 1 && relativeY < maxY + 1;
     }
 
     private static boolean isDestroySlot(CreativeModeInventoryScreen screen, double mouseX, double mouseY) {
@@ -216,19 +305,38 @@ public final class CreativeInventoryController {
 
     private static void close(State state) {
         if (state.pageLocksApplied) {
-            IpnCompat.captureMappedPageLocks(state.row);
+            IpnCompat.captureMappedPageLocks(state.displayedRow);
             IpnCompat.applyMappedPageLocks(0);
         }
         state.open = false;
         state.dragging = false;
+        state.requestQueued = false;
         PacketDistributor.sendToServer(CloseCreativeInventoryPagingPayload.INSTANCE);
     }
 
+    private static void dispatchQueuedRequest(State state) {
+        if (!state.open || state.awaitingPage || !state.requestQueued) {
+            return;
+        }
+        if (state.pageLocksApplied) {
+            IpnCompat.captureMappedPageLocks(state.displayedRow);
+        }
+        state.inFlightRow = state.requestedRow;
+        state.awaitingPage = true;
+        state.requestQueued = false;
+        PacketDistributor.sendToServer(new CreativeInventoryPageRequestPayload(state.inFlightRow));
+    }
+
     private static final class State {
-        private int row;
+        private int displayedRow;
+        private int requestedRow;
+        private int inFlightRow = -1;
         private boolean open;
         private boolean pageLocksApplied;
+        private boolean awaitingPage;
+        private boolean requestQueued;
         private boolean dragging;
         private boolean destroyRequested;
+        private int requestDelay;
     }
 }

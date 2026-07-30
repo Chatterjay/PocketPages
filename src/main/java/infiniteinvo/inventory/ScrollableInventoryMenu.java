@@ -313,10 +313,36 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
 
     @Override
     public void removed(Player player) {
-        super.removed(player);
-        store.syncToPlayer(player);
         if (player instanceof ServerPlayer serverPlayer) {
+            returnOrDrop(serverPlayer, getCarried());
+            setCarried(ItemStack.EMPTY);
+            resultSlots.clearContent();
+            returnCraftingItems(serverPlayer);
+            store.syncNativeMirrorFromPlayer(serverPlayer);
+            store.syncToPlayer(serverPlayer);
             InfiniteInventoryData.dropLockedItems(serverPlayer);
+        } else {
+            resultSlots.clearContent();
+            store.syncToPlayer(player);
+        }
+    }
+
+    private void returnCraftingItems(ServerPlayer player) {
+        for (int slot = 0; slot < craftSlots.getContainerSize(); slot++) {
+            returnOrDrop(player, craftSlots.removeItemNoUpdate(slot));
+        }
+    }
+
+    /** Mirrors vanilla close behavior while allowing Inventory.add to use overflow slots. */
+    private static void returnOrDrop(ServerPlayer player, ItemStack stack) {
+        if (stack.isEmpty()) {
+            return;
+        }
+        if (player.isAlive() && !player.hasDisconnected()) {
+            player.getInventory().add(stack);
+        }
+        if (!stack.isEmpty()) {
+            player.drop(stack, false);
         }
     }
 
