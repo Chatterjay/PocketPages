@@ -22,16 +22,19 @@ abstract class PlayerMainInvWrapperOverflowMixin {
     }
 
     public ItemStack getStackInSlot(int slot) {
-        return InfiniteInventoryItemHandler.isOverflowSlot(inventoryPlayer, slot)
-                ? InfiniteInventoryItemHandler.getStackInSlot(inventoryPlayer, slot)
-                : inventoryPlayer.getItem(slot);
+        if (InfiniteInventoryItemHandler.isExposedOverflowSlot(inventoryPlayer, slot)) {
+            return InfiniteInventoryItemHandler.getStackInSlot(inventoryPlayer, slot);
+        }
+        return slot >= 0 && slot < inventoryPlayer.items.size()
+                ? inventoryPlayer.getItem(slot)
+                : ItemStack.EMPTY;
     }
 
     public ItemStack extractItem(int slot, int amount, boolean simulate) {
-        if (InfiniteInventoryItemHandler.isOverflowSlot(inventoryPlayer, slot)) {
+        if (InfiniteInventoryItemHandler.isExposedOverflowSlot(inventoryPlayer, slot)) {
             return InfiniteInventoryItemHandler.extractItem(inventoryPlayer, slot, amount, simulate);
         }
-        if (amount <= 0) {
+        if (amount <= 0 || slot < 0 || slot >= inventoryPlayer.items.size()) {
             return ItemStack.EMPTY;
         }
 
@@ -43,28 +46,28 @@ abstract class PlayerMainInvWrapperOverflowMixin {
     }
 
     public void setStackInSlot(int slot, ItemStack stack) {
-        if (InfiniteInventoryItemHandler.isOverflowSlot(inventoryPlayer, slot)) {
+        if (InfiniteInventoryItemHandler.isExposedOverflowSlot(inventoryPlayer, slot)) {
             InfiniteInventoryItemHandler.setStackInSlot(inventoryPlayer, slot, stack);
-        } else {
+        } else if (slot >= 0 && slot < inventoryPlayer.items.size()) {
             inventoryPlayer.setItem(slot, stack);
         }
     }
 
     public int getSlotLimit(int slot) {
-        return InfiniteInventoryItemHandler.isOverflowSlot(inventoryPlayer, slot)
+        return InfiniteInventoryItemHandler.isExposedOverflowSlot(inventoryPlayer, slot)
                 ? InfiniteInventoryItemHandler.getSlotLimit(inventoryPlayer, slot)
-                : inventoryPlayer.getMaxStackSize();
+                : slot >= 0 && slot < inventoryPlayer.items.size() ? inventoryPlayer.getMaxStackSize() : 0;
     }
 
     public boolean isItemValid(int slot, ItemStack stack) {
-        return InfiniteInventoryItemHandler.isOverflowSlot(inventoryPlayer, slot)
+        return InfiniteInventoryItemHandler.isExposedOverflowSlot(inventoryPlayer, slot)
                 ? InfiniteInventoryItemHandler.isItemValid(inventoryPlayer, slot, stack)
-                : inventoryPlayer.canPlaceItem(slot, stack);
+                : slot >= 0 && slot < inventoryPlayer.items.size() && inventoryPlayer.canPlaceItem(slot, stack);
     }
 
     @Inject(method = "insertItem", at = @At("HEAD"), cancellable = true)
     private void infiniteinvo$insertOverflow(int slot, ItemStack stack, boolean simulate, CallbackInfoReturnable<ItemStack> callback) {
-        if (InfiniteInventoryItemHandler.isOverflowSlot(inventoryPlayer, slot)) {
+        if (InfiniteInventoryItemHandler.isExposedOverflowSlot(inventoryPlayer, slot)) {
             callback.setReturnValue(InfiniteInventoryItemHandler.insertItem(inventoryPlayer, slot, stack, simulate));
         }
     }

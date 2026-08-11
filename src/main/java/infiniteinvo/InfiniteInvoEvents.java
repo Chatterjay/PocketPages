@@ -11,10 +11,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.common.util.TriState;
-import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
@@ -36,15 +33,13 @@ public final class InfiniteInvoEvents {
                     int cleared = 0;
                     for (int slot = 0; slot < InfiniteInventoryData.getUnlocked(player); slot++) {
                         if (!state.getItem(slot).isEmpty()) {
-                            state.setItem(slot, ItemStack.EMPTY);
                             cleared++;
                         }
                     }
                     for (int slot = 9; slot < 36; slot++) {
                         player.getInventory().setItem(slot, ItemStack.EMPTY);
                     }
-                    InfiniteInventoryData.markDirty(player);
-                    player.containerMenu.broadcastChanges();
+                    CreativeInventoryPaging.clearAll(player);
                     return cleared;
                 })));
     }
@@ -67,6 +62,13 @@ public final class InfiniteInvoEvents {
             replacementState.setUnlockedSlots(previous.getUnlockedSlots());
         }
         InfiniteInventoryData.replaceState(replacement, replacementState);
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            InfiniteInventoryData.dropLegacyPlaceholderItems(player);
+        }
     }
 
     @SubscribeEvent
@@ -105,55 +107,6 @@ public final class InfiniteInvoEvents {
             ItemEntity item = new ItemEntity(level, player.getX(), player.getY() + 0.5, player.getZ(), stack.copy());
             item.setDefaultPickUpDelay();
             level.addFreshEntity(item);
-        }
-    }
-
-    @SubscribeEvent
-    public static void onItemPickupPre(ItemEntityPickupEvent.Pre event) {
-        if (!(event.getPlayer() instanceof ServerPlayer player)) {
-            return;
-        }
-
-        boolean vanillaSpace = hasVanillaInventorySpace(player.getInventory(), event.getItemEntity().getItem());
-        if (vanillaSpace) {
-            return;
-        }
-
-        moveToOverflow(player, event.getItemEntity(), event);
-    }
-
-    @SubscribeEvent
-    public static void onItemPickupPost(ItemEntityPickupEvent.Post event) {
-        if (event.getPlayer() instanceof ServerPlayer player && !event.getCurrentStack().isEmpty()) {
-            moveToOverflow(player, event.getItemEntity(), null);
-        }
-    }
-
-    private static boolean hasVanillaInventorySpace(Inventory inventory, ItemStack incoming) {
-        for (ItemStack existing : inventory.items) {
-            if (existing.isEmpty()) {
-                return true;
-            }
-            if (ItemStack.isSameItemSameComponents(existing, incoming) && existing.getCount() < existing.getMaxStackSize()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static void moveToOverflow(ServerPlayer player, ItemEntity itemEntity, ItemEntityPickupEvent.Pre preEvent) {
-        ItemStack stack = itemEntity.getItem();
-        int inserted = InfiniteInventoryData.insertOverflow(player, stack);
-        if (inserted <= 0) {
-            return;
-        }
-
-        player.take(itemEntity, inserted);
-        if (stack.isEmpty()) {
-            itemEntity.discard();
-        }
-        if (preEvent != null) {
-            preEvent.setCanPickup(TriState.FALSE);
         }
     }
 

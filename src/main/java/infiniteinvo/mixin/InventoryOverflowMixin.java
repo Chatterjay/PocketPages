@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/** Routes only the remainder of a normal player-inventory insertion to overflow. */
+/** Routes insertion remainders to the virtual store. */
 @Mixin(Inventory.class)
 abstract class InventoryOverflowMixin {
     @Shadow @Final public Player player;
@@ -77,6 +77,9 @@ abstract class InventoryOverflowMixin {
                         mappedStart, mappedStart < 0 ? -1 : mappedStart + CreativeInventoryPaging.PAGE_SIZE);
             }
             callback.setReturnValue(nativeCleared + overflowCleared);
+            if (overflowCleared > 0) {
+                CreativeInventoryPaging.refreshClientPage(serverPlayer);
+            }
         }
         infiniteinvo$syncNativeMirror();
     }

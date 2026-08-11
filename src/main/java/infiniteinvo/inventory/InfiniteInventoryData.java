@@ -101,7 +101,32 @@ public final class InfiniteInventoryData {
 
     /** Inserts only into the non-vanilla portion of the extended inventory. */
     public static int insertOverflow(ServerPlayer player, ItemStack remaining) {
-        if (remaining.isEmpty()) {
+        if (remaining.isEmpty() || !canInsertIntoVirtualSlot(remaining)) {
+            return 0;
+        }
+
+        // Check capacity before mutating the live remainder.
+        ItemStack simulated = remaining.copy();
+        int possible = insertOverflowInternal(player, simulated, true);
+        if (possible <= 0) {
+            return 0;
+        }
+
+        ItemStack committed = remaining.copy();
+        int inserted = insertOverflowInternal(player, committed, false);
+        if (inserted > 0) {
+            remaining.shrink(inserted);
+            markDirty(player);
+        }
+        return inserted;
+    }
+
+    public static boolean canInsertIntoVirtualSlot(ItemStack stack) {
+        return !stack.is(InfiniteInvo.LOCKED_SLOT.asItem());
+    }
+
+    private static int insertOverflowInternal(ServerPlayer player, ItemStack remaining, boolean simulate) {
+        if (remaining.isEmpty() || !canInsertIntoVirtualSlot(remaining)) {
             return 0;
         }
 
@@ -114,8 +139,9 @@ public final class InfiniteInventoryData {
             if (!existing.isEmpty() && ItemStack.isSameItemSameComponents(existing, remaining)) {
                 int moved = Math.min(remaining.getCount(), existing.getMaxStackSize() - existing.getCount());
                 if (moved > 0) {
-                    existing.grow(moved);
-                    state.setItem(slot, existing);
+                    if (!simulate) {
+                        state.setItem(slot, existing.copyWithCount(existing.getCount() + moved));
+                    }
                     remaining.shrink(moved);
                 }
             }
@@ -124,16 +150,14 @@ public final class InfiniteInventoryData {
         for (int slot = 27; slot < unlocked && !remaining.isEmpty(); slot++) {
             if (state.getItem(slot).isEmpty()) {
                 int moved = Math.min(remaining.getCount(), remaining.getMaxStackSize());
-                state.setItem(slot, remaining.copyWithCount(moved));
+                if (!simulate) {
+                    state.setItem(slot, remaining.copyWithCount(moved));
+                }
                 remaining.shrink(moved);
             }
         }
 
-        int inserted = before - remaining.getCount();
-        if (inserted > 0) {
-            markDirty(player);
-        }
-        return inserted;
+        return before - remaining.getCount();
     }
 
     /**
@@ -197,6 +221,28 @@ public final class InfiniteInventoryData {
             state.clearStoredItem(slot);
             changed = true;
         }
+        if (changed) {
+            markDirty(player);
+        }
+    }
+
+    /** Ejects the internal placeholder item if an old save contains it. */
+    public static void dropLegacyPlaceholderItems(ServerPlayer player) {
+        InfiniteInventoryState state = state(player);
+        int unlocked = getUnlocked(player);
+        boolean changed = false;
+
+        for (int slot = 27; slot < unlocked && slot < state.size(); slot++) {
+            ItemStack stack = state.getItem(slot);
+            if (stack.isEmpty() || canInsertIntoVirtualSlot(stack)) {
+                continue;
+            }
+
+            dropAtPlayer(player, stack);
+            state.clearStoredItem(slot);
+            changed = true;
+        }
+
         if (changed) {
             markDirty(player);
         }

@@ -24,6 +24,8 @@
   "infiniteinvo.configuration.use_experience_points.tooltip": "Charge raw experience points instead of experience levels.",
   "infiniteinvo.configuration.keep_unlocks_on_death": "Keep Unlocks on Death",
   "infiniteinvo.configuration.keep_unlocks_on_death.tooltip": "Keep unlocked slots when keepInventory is disabled.",
+  "infiniteinvo.configuration.expose_virtual_slots_to_automation": "Expose Virtual Slots to Automation",
+  "infiniteinvo.configuration.expose_virtual_slots_to_automation.tooltip": "When enabled, standard NeoForge player inventory handlers also expose InfiniteInvo slots. The explicit virtual inventory capability is always available.",
   "infiniteinvo.configuration.remember_container_page": "Remember Container Page",
   "infiniteinvo.configuration.remember_container_page.tooltip": "Reopen ordinary containers on the most recently viewed extended inventory page.",
   "infiniteinvo.configuration.locked_item_drop_check_interval_ticks": "Locked Item Check Interval",

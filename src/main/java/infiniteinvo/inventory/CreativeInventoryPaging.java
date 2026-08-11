@@ -28,6 +28,8 @@ public final class CreativeInventoryPaging {
         InfiniteInventoryState state = InfiniteInventoryData.state(player);
         int previousRow = ACTIVE_ROWS.getOrDefault(player.getUUID(), 0);
         storeMappedPage(player, state, previousRow);
+        // Remove rejected stacks before remapping the page.
+        InfiniteInventoryData.dropLegacyPlaceholderItems(player);
 
         int row = Math.max(0, Math.min(requestedRow, maxRow(state.size())));
         loadMappedPage(player, state, row);
@@ -58,8 +60,21 @@ public final class CreativeInventoryPaging {
             state.setItem(slot, ItemStack.EMPTY);
         }
         InfiniteInventoryData.markDirty(player);
+        refreshClientPage(player);
+    }
+
+    /** Reconciles the native mirror and active client page. */
+    public static void refreshClientPage(ServerPlayer player) {
         int row = ACTIVE_ROWS.getOrDefault(player.getUUID(), 0);
-        sendPage(player, row, state);
+        if (ACTIVE_ROWS.containsKey(player.getUUID())) {
+            InfiniteInventoryState state = InfiniteInventoryData.state(player);
+            loadMappedPage(player, state, row);
+            sendPage(player, row, state);
+        }
+        player.inventoryMenu.broadcastChanges();
+        if (player.containerMenu != player.inventoryMenu) {
+            player.containerMenu.broadcastChanges();
+        }
     }
 
     /**
@@ -136,7 +151,19 @@ public final class CreativeInventoryPaging {
     private static void storeMappedPage(ServerPlayer player, InfiniteInventoryState state, int row) {
         int start = row * 9;
         for (int i = 0; i < PAGE_SIZE && start + i < state.size(); i++) {
-            state.setItem(start + i, player.getInventory().getItem(i + 9));
+            int virtualSlot = start + i;
+            ItemStack mapped = player.getInventory().getItem(i + 9);
+            if (virtualSlot >= 27 && !mapped.isEmpty()
+                    && !InfiniteInventoryData.canInsertIntoVirtualSlot(mapped)) {
+                InfiniteInventoryData.dropAtPlayer(player, mapped);
+                final int inventorySlot = i + 9;
+                runInternalMappingWrite(() -> player.getInventory().setItem(inventorySlot, ItemStack.EMPTY));
+                state.setItem(virtualSlot, ItemStack.EMPTY);
+                continue;
+            }
+            if (!ItemStack.matches(state.getItem(virtualSlot), mapped)) {
+                state.setItem(virtualSlot, mapped);
+            }
         }
     }
 
@@ -144,7 +171,10 @@ public final class CreativeInventoryPaging {
         runInternalMappingWrite(() -> {
             int start = row * 9;
             for (int i = 0; i < PAGE_SIZE; i++) {
-                player.getInventory().setItem(i + 9, start + i < state.size() ? state.getItem(start + i).copy() : ItemStack.EMPTY);
+                ItemStack desired = start + i < state.size() ? state.getItem(start + i) : ItemStack.EMPTY;
+                if (!ItemStack.matches(player.getInventory().getItem(i + 9), desired)) {
+                    player.getInventory().setItem(i + 9, desired.copy());
+                }
             }
         });
         player.inventoryMenu.broadcastChanges();

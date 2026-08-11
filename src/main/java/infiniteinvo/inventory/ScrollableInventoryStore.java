@@ -21,10 +21,17 @@ public final class ScrollableInventoryStore implements Container {
     }
 
     void syncFromPlayer(Player player) {
+        boolean changed = false;
         for (int i = 0; i < 27 && i + 9 < player.getInventory().items.size() && i < getContainerSize(); i++) {
-            state.setItem(i, player.getInventory().getItem(i + 9));
+            ItemStack nativeStack = player.getInventory().getItem(i + 9);
+            if (!ItemStack.matches(state.getItem(i), nativeStack)) {
+                state.setItem(i, nativeStack);
+                changed = true;
+            }
         }
-        InfiniteInventoryData.markDirty(player);
+        if (changed) {
+            InfiniteInventoryData.markDirty(player);
+        }
     }
 
     /**
@@ -67,7 +74,10 @@ public final class ScrollableInventoryStore implements Container {
 
     void syncToPlayer(Player player) {
         for (int i = 0; i < 27 && i + 9 < player.getInventory().items.size() && i < getContainerSize(); i++) {
-            player.getInventory().setItem(i + 9, state.getItem(i).copy());
+            ItemStack stateStack = state.getItem(i);
+            if (!ItemStack.matches(player.getInventory().getItem(i + 9), stateStack)) {
+                player.getInventory().setItem(i + 9, stateStack.copy());
+            }
         }
     }
 
@@ -141,6 +151,9 @@ public final class ScrollableInventoryStore implements Container {
         if (stateSlot < 0 || stateSlot >= 27 || inventorySlot >= owner.getInventory().items.size()) {
             return;
         }
-        owner.getInventory().setItem(inventorySlot, state.getItem(stateSlot).copy());
+        ItemStack stateStack = state.getItem(stateSlot);
+        if (!ItemStack.matches(owner.getInventory().getItem(inventorySlot), stateStack)) {
+            owner.getInventory().setItem(inventorySlot, stateStack.copy());
+        }
     }
 }

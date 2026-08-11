@@ -32,7 +32,8 @@ final class ScrollSlot extends Slot {
 
     @Override
     public void set(ItemStack stack) {
-        if (virtualIndex < container.getContainerSize() && (menu.isUnlocked(virtualIndex) || stack.isEmpty())) {
+        if (virtualIndex < container.getContainerSize() && (menu.isUnlocked(virtualIndex) || stack.isEmpty())
+                && (virtualIndex < 27 || InfiniteInventoryData.canInsertIntoVirtualSlot(stack))) {
             container.setItem(virtualIndex, stack);
             setChanged();
         }
@@ -57,7 +58,9 @@ final class ScrollSlot extends Slot {
 
     @Override
     public boolean mayPlace(ItemStack stack) {
-        return virtualIndex < container.getContainerSize() && menu.isUnlocked(virtualIndex) && !stack.is(InfiniteInvo.LOCKED_SLOT.asItem());
+        return virtualIndex < container.getContainerSize() && menu.isUnlocked(virtualIndex)
+                && !stack.is(InfiniteInvo.LOCKED_SLOT.asItem())
+                && (virtualIndex < 27 || InfiniteInventoryData.canInsertIntoVirtualSlot(stack));
     }
 
     @Override

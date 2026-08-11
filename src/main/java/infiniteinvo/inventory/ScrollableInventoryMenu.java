@@ -71,6 +71,7 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
 
     public static void open(Player player) {
         if (player instanceof ServerPlayer serverPlayer) {
+            InfiniteInventoryData.dropLegacyPlaceholderItems(serverPlayer);
             serverPlayer.openMenu(new SimpleMenuProvider((id, inv, p) -> new ScrollableInventoryMenu(id, inv),
                     Component.translatable("container.infiniteinvo.inventory")));
         }

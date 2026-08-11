@@ -27,28 +27,28 @@ abstract class InvWrapperOverflowMixin {
 
     @Inject(method = "getStackInSlot", at = @At("HEAD"), cancellable = true)
     private void infiniteinvo$getStackInSlot(int slot, CallbackInfoReturnable<ItemStack> callback) {
-        if (inv instanceof Inventory inventory && InfiniteInventoryItemHandler.isOverflowSlot(inventory, slot)) {
+        if (inv instanceof Inventory inventory && InfiniteInventoryItemHandler.isExposedOverflowSlot(inventory, slot)) {
             callback.setReturnValue(InfiniteInventoryItemHandler.getStackInSlot(inventory, slot));
         }
     }
 
     @Inject(method = "insertItem", at = @At("HEAD"), cancellable = true)
     private void infiniteinvo$insertItem(int slot, ItemStack stack, boolean simulate, CallbackInfoReturnable<ItemStack> callback) {
-        if (inv instanceof Inventory inventory && InfiniteInventoryItemHandler.isOverflowSlot(inventory, slot)) {
+        if (inv instanceof Inventory inventory && InfiniteInventoryItemHandler.isExposedOverflowSlot(inventory, slot)) {
             callback.setReturnValue(InfiniteInventoryItemHandler.insertItem(inventory, slot, stack, simulate));
         }
     }
 
     @Inject(method = "extractItem", at = @At("HEAD"), cancellable = true)
     private void infiniteinvo$extractItem(int slot, int amount, boolean simulate, CallbackInfoReturnable<ItemStack> callback) {
-        if (inv instanceof Inventory inventory && InfiniteInventoryItemHandler.isOverflowSlot(inventory, slot)) {
+        if (inv instanceof Inventory inventory && InfiniteInventoryItemHandler.isExposedOverflowSlot(inventory, slot)) {
             callback.setReturnValue(InfiniteInventoryItemHandler.extractItem(inventory, slot, amount, simulate));
         }
     }
 
     @Inject(method = "setStackInSlot", at = @At("HEAD"), cancellable = true)
     private void infiniteinvo$setStackInSlot(int slot, ItemStack stack, CallbackInfo callback) {
-        if (inv instanceof Inventory inventory && InfiniteInventoryItemHandler.isOverflowSlot(inventory, slot)) {
+        if (inv instanceof Inventory inventory && InfiniteInventoryItemHandler.isExposedOverflowSlot(inventory, slot)) {
             InfiniteInventoryItemHandler.setStackInSlot(inventory, slot, stack);
             callback.cancel();
         }
@@ -56,14 +56,14 @@ abstract class InvWrapperOverflowMixin {
 
     @Inject(method = "getSlotLimit", at = @At("HEAD"), cancellable = true)
     private void infiniteinvo$getSlotLimit(int slot, CallbackInfoReturnable<Integer> callback) {
-        if (inv instanceof Inventory inventory && InfiniteInventoryItemHandler.isOverflowSlot(inventory, slot)) {
+        if (inv instanceof Inventory inventory && InfiniteInventoryItemHandler.isExposedOverflowSlot(inventory, slot)) {
             callback.setReturnValue(InfiniteInventoryItemHandler.getSlotLimit(inventory, slot));
         }
     }
 
     @Inject(method = "isItemValid", at = @At("HEAD"), cancellable = true)
     private void infiniteinvo$isItemValid(int slot, ItemStack stack, CallbackInfoReturnable<Boolean> callback) {
-        if (inv instanceof Inventory inventory && InfiniteInventoryItemHandler.isOverflowSlot(inventory, slot)) {
+        if (inv instanceof Inventory inventory && InfiniteInventoryItemHandler.isExposedOverflowSlot(inventory, slot)) {
             callback.setReturnValue(InfiniteInventoryItemHandler.isItemValid(inventory, slot, stack));
         }
     }

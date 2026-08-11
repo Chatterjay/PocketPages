@@ -13,6 +13,7 @@ public final class Config {
     public static final ModConfigSpec.BooleanValue USE_EXPERIENCE_POINTS;
     public static final ModConfigSpec.BooleanValue KEEP_UNLOCKS_ON_DEATH;
     public static final ModConfigSpec.IntValue LOCKED_ITEM_DROP_CHECK_INTERVAL_TICKS;
+    public static final ModConfigSpec.BooleanValue EXPOSE_VIRTUAL_SLOTS_TO_AUTOMATION;
     public static final ModConfigSpec.BooleanValue REMEMBER_CONTAINER_PAGE;
     public static final ModConfigSpec SPEC;
 
@@ -50,6 +51,10 @@ public final class Config {
                 .comment("Server ticks between locked-slot safety checks. One tick gives immediate cleanup; increase only to reduce work for very large player counts.")
                 .translation("infiniteinvo.configuration.locked_item_drop_check_interval_ticks")
                 .defineInRange("lockedItemDropCheckIntervalTicks", 1, 1, 1200);
+        EXPOSE_VIRTUAL_SLOTS_TO_AUTOMATION = BUILDER
+                .comment("Whether the standard NeoForge player inventory item handlers expose InfiniteInvo slots. The dedicated virtual inventory capability is always available.")
+                .translation("infiniteinvo.configuration.expose_virtual_slots_to_automation")
+                .define("exposeVirtualSlotsToAutomation", true);
         BUILDER.pop();
 
         BUILDER.push("client");
@@ -92,6 +97,10 @@ public final class Config {
 
     public static boolean usesExperiencePoints() {
         return USE_EXPERIENCE_POINTS.get();
+    }
+
+    public static boolean exposeVirtualSlotsToAutomation() {
+        return EXPOSE_VIRTUAL_SLOTS_TO_AUTOMATION.get();
     }
 
     private static int experiencePointsForLevel(int level) {

@@ -1,8 +1,10 @@
 package infiniteinvo;
 
 import com.mojang.logging.LogUtils;
+import infiniteinvo.api.InfiniteInvoCapabilities;
 import infiniteinvo.inventory.ScrollableInventoryMenu;
 import infiniteinvo.inventory.InfiniteInventoryState;
+import infiniteinvo.inventory.VirtualInventoryItemHandler;
 import infiniteinvo.item.LockedSlotItem;
 import infiniteinvo.item.UnlockSlotItem;
 import infiniteinvo.network.OpenInfiniteInventoryPayload;
@@ -17,6 +19,7 @@ import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.repository.Pack;
 import net.minecraft.server.packs.repository.PackSource;
 import net.minecraft.world.flag.FeatureFlags;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -29,6 +32,9 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.event.AddPackFindersEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.items.wrapper.PlayerInvWrapper;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -74,8 +80,16 @@ public final class InfiniteInvo {
         modEventBus.addListener(this::addCreativeTabItems);
         modEventBus.addListener(this::addBuiltInResourcePacks);
         modEventBus.addListener(this::registerPayloadHandlers);
+        modEventBus.addListener(this::registerCapabilities);
         NeoForge.EVENT_BUS.register(InfiniteInvoEvents.class);
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+    }
+
+    private void registerCapabilities(RegisterCapabilitiesEvent event) {
+        event.registerEntity(InfiniteInvoCapabilities.VIRTUAL_INVENTORY, EntityType.PLAYER,
+                (player, context) -> new VirtualInventoryItemHandler(player.getInventory()));
+        event.registerEntity(Capabilities.ItemHandler.ENTITY_AUTOMATION, EntityType.PLAYER,
+                (player, context) -> new PlayerInvWrapper(player.getInventory()));
     }
 
     private void addCreativeTabItems(BuildCreativeModeTabContentsEvent event) {

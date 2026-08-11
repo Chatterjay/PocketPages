@@ -1,5 +1,6 @@
 package infiniteinvo.inventory;
 
+import infiniteinvo.Config;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -12,21 +13,34 @@ public final class InfiniteInventoryItemHandler {
     }
 
     public static int getSlots(Inventory inventory) {
-        return inventory.items.size() + Math.max(0, InfiniteInventoryData.state(inventory.player).size() - VANILLA_MAIN_STORAGE_SLOTS);
+        return Config.exposeVirtualSlotsToAutomation()
+                ? inventory.items.size() + getVirtualSlots(inventory)
+                : inventory.items.size();
     }
 
     public static boolean isOverflowSlot(Inventory inventory, int slot) {
-        return slot >= inventory.items.size() && slot < getSlots(inventory);
+        return slot >= inventory.items.size() && slot < inventory.items.size() + getVirtualSlots(inventory);
+    }
+
+    public static boolean isExposedOverflowSlot(Inventory inventory, int slot) {
+        return Config.exposeVirtualSlotsToAutomation() && isOverflowSlot(inventory, slot);
+    }
+
+    public static int getVirtualSlots(Inventory inventory) {
+        return Math.max(0, InfiniteInventoryData.state(inventory.player).size() - VANILLA_MAIN_STORAGE_SLOTS);
     }
 
     public static ItemStack getStackInSlot(Inventory inventory, int slot) {
         int stateSlot = stateSlot(inventory, slot);
-        return stateSlot < 0 ? ItemStack.EMPTY : InfiniteInventoryData.state(inventory.player).getItem(stateSlot).copy();
+        return stateSlot < 0 || !isUnlocked(inventory.player, stateSlot)
+                ? ItemStack.EMPTY
+                : InfiniteInventoryData.state(inventory.player).getItem(stateSlot).copy();
     }
 
     public static ItemStack insertItem(Inventory inventory, int slot, ItemStack stack, boolean simulate) {
         int stateSlot = stateSlot(inventory, slot);
-        if (stateSlot < 0 || stack.isEmpty() || !isUnlocked(inventory.player, stateSlot)) {
+        if (stateSlot < 0 || stack.isEmpty() || !isUnlocked(inventory.player, stateSlot)
+                || !InfiniteInventoryData.canInsertIntoVirtualSlot(stack)) {
             return stack;
         }
 
@@ -56,7 +70,7 @@ public final class InfiniteInventoryItemHandler {
 
     public static ItemStack extractItem(Inventory inventory, int slot, int amount, boolean simulate) {
         int stateSlot = stateSlot(inventory, slot);
-        if (stateSlot < 0 || amount <= 0) {
+        if (stateSlot < 0 || amount <= 0 || !isUnlocked(inventory.player, stateSlot)) {
             return ItemStack.EMPTY;
         }
 
@@ -79,7 +93,8 @@ public final class InfiniteInventoryItemHandler {
 
     public static void setStackInSlot(Inventory inventory, int slot, ItemStack stack) {
         int stateSlot = stateSlot(inventory, slot);
-        if (stateSlot < 0 || !isUnlocked(inventory.player, stateSlot)) {
+        if (stateSlot < 0 || !isUnlocked(inventory.player, stateSlot)
+                || (!stack.isEmpty() && !InfiniteInventoryData.canInsertIntoVirtualSlot(stack))) {
             return;
         }
 
@@ -88,12 +103,15 @@ public final class InfiniteInventoryItemHandler {
     }
 
     public static int getSlotLimit(Inventory inventory, int slot) {
-        return isOverflowSlot(inventory, slot) ? inventory.getMaxStackSize() : 0;
+        return isOverflowSlot(inventory, slot) && isUnlocked(inventory.player, stateSlot(inventory, slot))
+                ? inventory.getMaxStackSize()
+                : 0;
     }
 
     public static boolean isItemValid(Inventory inventory, int slot, ItemStack stack) {
         int stateSlot = stateSlot(inventory, slot);
-        return stateSlot >= 0 && isUnlocked(inventory.player, stateSlot);
+        return stateSlot >= 0 && isUnlocked(inventory.player, stateSlot)
+                && InfiniteInventoryData.canInsertIntoVirtualSlot(stack);
     }
 
     private static int stateSlot(Inventory inventory, int slot) {
