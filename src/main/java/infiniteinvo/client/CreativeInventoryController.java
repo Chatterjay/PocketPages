@@ -1,6 +1,7 @@
 package infiniteinvo.client;
 
 import infiniteinvo.InfiniteInvo;
+import infiniteinvo.DebugLog;
 import infiniteinvo.inventory.CreativeInventoryPaging;
 import infiniteinvo.inventory.InfiniteInventoryData;
 import infiniteinvo.network.CloseCreativeInventoryPagingPayload;
@@ -9,6 +10,7 @@ import infiniteinvo.network.ClearInfiniteInventoryPayload;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
@@ -49,6 +51,8 @@ public final class CreativeInventoryController {
 
         if (!state.open) {
             state.open = true;
+            state.sessionId = ThreadLocalRandom.current().nextInt(1, Integer.MAX_VALUE);
+            state.nextRequestId = 0;
             IpnCompat.migrateNativeStorageLocks();
             request(state, 0, true);
         }
@@ -64,7 +68,10 @@ public final class CreativeInventoryController {
         }
 
         cancelQuickCraft(event.getScreen());
-        request(state, state.requestedRow + (event.getScrollDeltaY() < 0.0D ? 1 : -1), false);
+        int target = state.requestedRow + (event.getScrollDeltaY() < 0.0D ? 1 : -1);
+        DebugLog.debug("[Paging][Client] creative scroll delta={} displayedRow={} requestedRow={} targetRow={} session={}",
+                event.getScrollDeltaY(), state.displayedRow, state.requestedRow, target, state.sessionId);
+        request(state, target, false);
         event.setCanceled(true);
     }
 
@@ -153,41 +160,57 @@ public final class CreativeInventoryController {
         }
     }
 
-    public static void applyPage(int row, int unlockedSlots, List<ItemStack> stacks) {
+    public static void applyPage(int row, int unlockedSlots, int sessionId, int requestId, List<ItemStack> stacks) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) {
             return;
         }
 
+        DebugLog.debug("[Paging][Client] page response row={} session={} requestId={} stacks={} screen={}",
+                row, sessionId, requestId, describeStacks(stacks),
+                minecraft.screen == null ? "none" : minecraft.screen.getClass().getSimpleName());
+
         State creativeState = null;
         if (minecraft.screen instanceof CreativeModeInventoryScreen screen) {
             creativeState = STATES.get(screen);
-            if (creativeState == null || !creativeState.open
-                    || (creativeState.awaitingPage ? creativeState.inFlightRow != row : creativeState.displayedRow != row)) {
+            if (creativeState == null || !creativeState.open || creativeState.sessionId != sessionId
+                    || (creativeState.awaitingPage
+                    ? creativeState.inFlightRow != row
+                    || (requestId != Integer.MAX_VALUE && creativeState.inFlightRequestId != requestId)
+                    : creativeState.displayedRow != row)) {
+                DebugLog.debug("[Paging][Client] page response rejected creative row={} session={} requestId={}",
+                        row, sessionId, requestId);
                 return;
             }
-        } else if (!ContainerInventoryPagingController.shouldApplyPageData(row)) {
+        } else if (!ContainerInventoryPagingController.shouldApplyPageData(row, sessionId, requestId)) {
+            DebugLog.debug("[Paging][Client] page response rejected container row={} session={} requestId={}",
+                    row, sessionId, requestId);
             return;
         }
 
-        for (int i = 0; i < CreativeInventoryPaging.PAGE_SIZE; i++) {
-            ItemStack stack = i < stacks.size() ? stacks.get(i) : ItemStack.EMPTY;
-            minecraft.player.getInventory().setItem(i + 9, stack.copy());
-        }
         InfiniteInventoryData.applyClientPage(minecraft.player, row, unlockedSlots, stacks);
+        CreativeInventoryPaging.mapClientMenu(minecraft.player, minecraft.player.inventoryMenu, row);
+        if (!(minecraft.screen instanceof CreativeModeInventoryScreen)) {
+            if (minecraft.screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> container) {
+                CreativeInventoryPaging.mapClientMenu(minecraft.player, container.getMenu(), row);
+            }
+        }
         IpnCompat.applyMappedPageLocks(row);
         if (creativeState != null) {
             creativeState.displayedRow = row;
             creativeState.pageLocksApplied = true;
             creativeState.awaitingPage = false;
             creativeState.inFlightRow = -1;
+            creativeState.inFlightRequestId = -1;
             if (creativeState.requestedRow != row) {
                 creativeState.requestQueued = true;
                 creativeState.requestDelay = 0;
                 dispatchQueuedRequest(creativeState);
             }
+            DebugLog.debug("[Paging][Client] creative page applied row={} displayedRow={} requestedRow={} nextQueued={}",
+                    row, creativeState.displayedRow, creativeState.requestedRow, creativeState.requestQueued);
         } else {
-            ContainerInventoryPagingController.receivePageData(row, unlockedSlots);
+            ContainerInventoryPagingController.receivePageData(row, unlockedSlots, sessionId, requestId);
         }
     }
 
@@ -248,8 +271,8 @@ public final class CreativeInventoryController {
         int maxY = Integer.MIN_VALUE;
         int slots = 0;
         for (Slot slot : screen.getMenu().slots) {
-            if (slot.container != Minecraft.getInstance().player.getInventory()
-                    || slot.getContainerSlot() < 9 || slot.getContainerSlot() >= 36) {
+            if (!CreativeInventoryPaging.isPlayerStorageSlot(
+                    screen.getMenu(), slot, Minecraft.getInstance().player.getInventory())) {
                 continue;
             }
             minX = Math.min(minX, slot.x);
@@ -304,6 +327,9 @@ public final class CreativeInventoryController {
     }
 
     private static void close(State state) {
+        if (Minecraft.getInstance().screen instanceof CreativeModeInventoryScreen screen) {
+            CreativeInventoryPaging.restoreMenu(Minecraft.getInstance().player.inventoryMenu);
+        }
         if (state.pageLocksApplied) {
             IpnCompat.captureMappedPageLocks(state.displayedRow);
             IpnCompat.applyMappedPageLocks(0);
@@ -311,7 +337,7 @@ public final class CreativeInventoryController {
         state.open = false;
         state.dragging = false;
         state.requestQueued = false;
-        PacketDistributor.sendToServer(CloseCreativeInventoryPagingPayload.INSTANCE);
+        PacketDistributor.sendToServer(new CloseCreativeInventoryPagingPayload(state.sessionId));
     }
 
     private static void dispatchQueuedRequest(State state) {
@@ -322,15 +348,36 @@ public final class CreativeInventoryController {
             IpnCompat.captureMappedPageLocks(state.displayedRow);
         }
         state.inFlightRow = state.requestedRow;
+        state.inFlightRequestId = ++state.nextRequestId;
         state.awaitingPage = true;
         state.requestQueued = false;
-        PacketDistributor.sendToServer(new CreativeInventoryPageRequestPayload(state.inFlightRow));
+        DebugLog.debug("[Paging][Client] send creative page request row={} session={} requestId={} displayedRow={}",
+                state.inFlightRow, state.sessionId, state.inFlightRequestId, state.displayedRow);
+        PacketDistributor.sendToServer(new CreativeInventoryPageRequestPayload(
+                state.inFlightRow, state.sessionId, state.inFlightRequestId));
+    }
+
+    private static String describeStacks(List<ItemStack> stacks) {
+        if (!DebugLog.enabled()) {
+            return "disabled";
+        }
+        StringBuilder result = new StringBuilder("[");
+        for (int i = 0; i < stacks.size(); i++) {
+            if (i > 0) {
+                result.append(", ");
+            }
+            result.append(i + 9).append('=').append(DebugLog.stack(stacks.get(i)));
+        }
+        return result.append(']').toString();
     }
 
     private static final class State {
         private int displayedRow;
         private int requestedRow;
         private int inFlightRow = -1;
+        private int inFlightRequestId = -1;
+        private int sessionId;
+        private int nextRequestId;
         private boolean open;
         private boolean pageLocksApplied;
         private boolean awaitingPage;

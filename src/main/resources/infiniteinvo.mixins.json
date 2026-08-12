@@ -3,14 +3,13 @@
   "package": "infiniteinvo.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "InventoryOverflowMixin",
-    "InventoryPlaceBackOverflowMixin",
-    "MappedInventoryLockMixin",
-    "MappedPlayerSlotLockMixin",
-    "InvWrapperOverflowMixin",
-    "PlayerMainInvWrapperOverflowMixin"
+    "MutableSlotMixin",
+    "ExtendedInventoryMixin",
+    "InventoryBoundsMixin",
+    "InventoryOverflowMixin"
   ],
   "client": [
+    "client.CreativeSlotWrapperMixin",
     "client.ClientMappedPlayerSlotLockMixin",
     "client.ClientQuickCraftResetMixin",
     "client.ClientInventoryDropQueueMixin",

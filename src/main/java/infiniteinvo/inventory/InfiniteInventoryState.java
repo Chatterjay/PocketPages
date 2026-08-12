@@ -2,18 +2,24 @@ package infiniteinvo.inventory;
 
 import infiniteinvo.Config;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.common.util.INBTSerializable;
+import net.minecraft.world.entity.player.Inventory;
 
 /** Persistent player attachment. Serialization runs with player saves, not each slot mutation. */
 public final class InfiniteInventoryState implements INBTSerializable<CompoundTag> {
     private static final String ITEMS = "Items";
     private static final String UNLOCKED = "UnlockedSlots";
+    private static final String PROTOTYPES = "Prototypes";
+    private static final String PROTOTYPE_ID = "Prototype";
+    private static final String COUNT = "Count";
     private final List<ItemStack> items = new ArrayList<>();
     private int unlockedSlots;
     private boolean initialized;
@@ -56,6 +62,13 @@ public final class InfiniteInventoryState implements INBTSerializable<CompoundTa
         }
     }
 
+    void setItemReference(int slot, ItemStack stack) {
+        ensureSize();
+        if (slot >= 0 && slot < size()) {
+            items.set(slot, stack);
+        }
+    }
+
     public ItemStack removeItem(int slot, int amount) {
         ItemStack stack = getItem(slot);
         if (stack.isEmpty() || amount <= 0) {
@@ -87,6 +100,18 @@ public final class InfiniteInventoryState implements INBTSerializable<CompoundTa
 
     public boolean isInitialized() {
         return initialized;
+    }
+
+    /** Seeds a new state from the physical slots already loaded by vanilla. */
+    public void initializeFromInventory(Inventory inventory) {
+        ensureSize();
+        for (int slot = 0; slot < size(); slot++) {
+            int physicalSlot = slot + 9;
+            items.set(slot, physicalSlot < inventory.items.size()
+                    ? inventory.items.get(physicalSlot)
+                    : ItemStack.EMPTY);
+        }
+        initialized = true;
     }
 
     public void importLegacy(CompoundTag legacy, HolderLookup.Provider registries) {
@@ -129,16 +154,29 @@ public final class InfiniteInventoryState implements INBTSerializable<CompoundTa
         CompoundTag tag = new CompoundTag();
         tag.putInt(UNLOCKED, unlockedSlots);
         ListTag entries = new ListTag();
+        ListTag prototypes = new ListTag();
+        Map<ItemStackKey, Integer> prototypeIds = new HashMap<>();
         for (int slot = 0; slot < items.size(); slot++) {
             ItemStack stack = items.get(slot);
             if (!stack.isEmpty()) {
+                ItemStackKey key = new ItemStackKey(stack, registries);
+                int prototypeId = prototypeIds.computeIfAbsent(key, ignored -> {
+                    int id = prototypes.size();
+                    CompoundTag prototype = new CompoundTag();
+                    prototype.putInt("Id", id);
+                    prototype.put("Stack", stack.copyWithCount(1).saveOptional(registries));
+                    prototypes.add(prototype);
+                    return id;
+                });
                 CompoundTag entry = new CompoundTag();
                 entry.putInt("Slot", slot);
-                entry.put("Stack", stack.saveOptional(registries));
+                entry.putInt(PROTOTYPE_ID, prototypeId);
+                entry.putInt(COUNT, stack.getCount());
                 entries.add(entry);
             }
         }
         tag.put(ITEMS, entries);
+        tag.put(PROTOTYPES, prototypes);
         return tag;
     }
 
@@ -147,6 +185,35 @@ public final class InfiniteInventoryState implements INBTSerializable<CompoundTa
         for (int i = 0; i < items.size(); i++) {
             items.set(i, ItemStack.EMPTY);
         }
-        importLegacy(tag, registries);
+        if (!tag.contains(PROTOTYPES, Tag.TAG_LIST)) {
+            importLegacy(tag, registries);
+            return;
+        }
+        unlockedSlots = tag.getInt(UNLOCKED);
+        ListTag prototypes = tag.getList(PROTOTYPES, Tag.TAG_COMPOUND);
+        List<ItemStack> decoded = new ArrayList<>(prototypes.size());
+        for (int i = 0; i < prototypes.size(); i++) {
+            CompoundTag prototype = prototypes.getCompound(i);
+            decoded.add(ItemStack.parseOptional(registries, prototype.getCompound("Stack")));
+        }
+        ListTag entries = tag.getList(ITEMS, Tag.TAG_COMPOUND);
+        for (int i = 0; i < entries.size(); i++) {
+            CompoundTag entry = entries.getCompound(i);
+            int slot = entry.getInt("Slot");
+            int prototypeId = entry.getInt(PROTOTYPE_ID);
+            if (slot >= 0 && prototypeId >= 0 && prototypeId < decoded.size()) {
+                ItemStack prototype = decoded.get(prototypeId);
+                ensureStorage(slot + 1);
+                items.set(slot, prototype.isEmpty() ? ItemStack.EMPTY
+                        : prototype.copyWithCount(Math.max(1, entry.getInt(COUNT))));
+            }
+        }
+        initialized = true;
+    }
+
+    private record ItemStackKey(String value) {
+        ItemStackKey(ItemStack stack, HolderLookup.Provider registries) {
+            this(stack.copyWithCount(1).saveOptional(registries).toString());
+        }
     }
 }

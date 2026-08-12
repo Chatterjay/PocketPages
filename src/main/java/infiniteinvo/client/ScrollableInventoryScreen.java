@@ -1,10 +1,12 @@
 package infiniteinvo.client;
 
 import infiniteinvo.Config;
+import infiniteinvo.DebugLog;
 import infiniteinvo.InfiniteInvo;
 import infiniteinvo.inventory.InfiniteInventoryData;
 import infiniteinvo.inventory.ScrollableInventoryLayout;
 import infiniteinvo.inventory.ScrollableInventoryMenu;
+import infiniteinvo.network.ScrollableInventoryPageRequestPayload;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ImageButton;
@@ -18,6 +20,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.network.PacketDistributor;
 import java.util.List;
 
 public final class ScrollableInventoryScreen extends AbstractContainerScreen<ScrollableInventoryMenu> implements RecipeUpdateListener {
@@ -30,6 +34,9 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
     private boolean widthTooNarrow;
     private boolean recipeBookButtonClicked;
     private boolean draggingScrollbar;
+    private int requestedScrollPos;
+    private int inFlightScrollPos = -1;
+    private int nextScrollRequestId;
 
     public ScrollableInventoryScreen(ScrollableInventoryMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -37,6 +44,7 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
         this.imageHeight = ScrollableInventoryLayout.IMAGE_HEIGHT;
         this.titleLabelX = ScrollableInventoryLayout.CRAFTING_LABEL_X;
         this.titleLabelY = ScrollableInventoryLayout.CRAFTING_LABEL_Y;
+        this.requestedScrollPos = menu.getScrollPos();
     }
 
     @Override
@@ -276,9 +284,7 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
             if ((Object) this instanceof QuickCraftCancellation cancellation) {
                 cancellation.infiniteinvo$cancelQuickCraft();
             }
-            int id = scrollY > 0 ? 1 : 2;
-            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id);
-            menu.updateScroll(scrollY > 0 ? -1 : 1);
+            requestScroll(requestedScrollPos + (scrollY > 0 ? -1 : 1));
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
@@ -368,6 +374,9 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
 
     @Override
     protected void slotClicked(Slot slot, int slotId, int mouseButton, ClickType clickType) {
+        if (inFlightScrollPos >= 0 || requestedScrollPos != menu.getScrollPos()) {
+            return;
+        }
         super.slotClicked(slot, slotId, mouseButton, clickType);
         recipeBookComponent.slotClicked(slot);
     }
@@ -436,6 +445,27 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
         return Minecraft.getInstance().screen instanceof ScrollableInventoryScreen screen ? screen : null;
     }
 
+    /** Applies the server-confirmed page and its authoritative visible stacks. */
+    public static void applyServerPage(int containerId, int page, int requestId, List<ItemStack> stacks) {
+        ScrollableInventoryScreen screen = current();
+        if (screen == null || screen.menu.containerId != containerId
+                || screen.inFlightScrollPos != page
+                || screen.nextScrollRequestId != requestId) {
+            return;
+        }
+
+        screen.menu.setScrollPosition(page);
+        int firstSlot = page * screen.menu.getVisibleColumns();
+        int visibleSlots = Math.min(screen.menu.getVisibleGridSlots(), stacks.size());
+        for (int index = 0; index < visibleSlots; index++) {
+            screen.menu.getStore().setItem(firstSlot + index, stacks.get(index).copy());
+        }
+        screen.inFlightScrollPos = -1;
+        DebugLog.debug("[Paging][Client] applied scroll confirmation containerId={} page={} requestId={} stackCount={}",
+                containerId, page, requestId, stacks.size());
+        screen.dispatchScrollRequest();
+    }
+
     public static boolean isIpnVirtualSlotLocked(Slot slot) {
         ScrollableInventoryScreen screen = current();
         return screen != null && slot.container == screen.menu.getStore()
@@ -469,17 +499,30 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
         int target = (int) Math.round((mouseY - topPos - ScrollableInventoryLayout.SCROLL_Y - 4)
                 / ScrollableInventoryLayout.SCROLL_KNOB_TRAVEL * menu.getMaxScroll());
         target = Math.max(0, Math.min(menu.getMaxScroll(), target));
-        int delta = target - menu.getScrollPos();
-        if (delta == 0 || minecraft == null || minecraft.gameMode == null) {
+        if (target == requestedScrollPos || minecraft == null) {
             return;
         }
         if ((Object) this instanceof QuickCraftCancellation cancellation) {
             cancellation.infiniteinvo$cancelQuickCraft();
         }
-        int buttonId = delta > 0 ? 2 : 1;
-        for (int i = 0; i < Math.abs(delta); i++) {
-            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, buttonId);
+        requestScroll(target);
+    }
+
+    private void requestScroll(int target) {
+        requestedScrollPos = Math.max(0, Math.min(menu.getMaxScroll(), target));
+        DebugLog.debug("[Paging][Client] scroll target requested displayedPage={} requestedPage={} targetPage={} containerId={}",
+                menu.getScrollPos(), requestedScrollPos, target, menu.containerId);
+        dispatchScrollRequest();
+    }
+
+    private void dispatchScrollRequest() {
+        if (minecraft == null || inFlightScrollPos >= 0 || requestedScrollPos == menu.getScrollPos()) {
+            return;
         }
-        menu.updateScroll(delta);
+        inFlightScrollPos = requestedScrollPos;
+        DebugLog.debug("[Paging][Client] send scroll request containerId={} page={} requestId={} currentPage={}",
+                menu.containerId, inFlightScrollPos, nextScrollRequestId + 1, menu.getScrollPos());
+        PacketDistributor.sendToServer(new ScrollableInventoryPageRequestPayload(
+                menu.containerId, inFlightScrollPos, ++nextScrollRequestId));
     }
 }

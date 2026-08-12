@@ -1,33 +1,24 @@
 package infiniteinvo.inventory;
 
-import infiniteinvo.Config;
+import infiniteinvo.InfiniteInvo;
 import net.minecraft.world.Container;
+import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
-/** Menu view over the player's real extended Inventory.items slots. */
-public final class ScrollableInventoryStore implements Container {
-    private final Player owner;
+/** Indexed container view of a player's actual expanded item list. */
+public final class ExtendedInventoryContainer implements Container {
     private final Inventory inventory;
 
-    private ScrollableInventoryStore(Player owner) {
-        this.owner = owner;
-        this.inventory = owner.getInventory();
-        ExtendedInventory.ensure(inventory);
-    }
-
-    static ScrollableInventoryStore load(Player player) {
-        return new ScrollableInventoryStore(player);
-    }
-
-    void syncFromPlayer(Player player) {
+    public ExtendedInventoryContainer(Inventory inventory) {
+        this.inventory = inventory;
         ExtendedInventory.ensure(inventory);
     }
 
     @Override
     public int getContainerSize() {
-        return Config.totalExtraSlots();
+        return InfiniteInventoryData.state(inventory.player).size();
     }
 
     @Override
@@ -42,10 +33,8 @@ public final class ScrollableInventoryStore implements Container {
 
     @Override
     public ItemStack getItem(int slot) {
-        int inventorySlot = slot + 9;
-        return slot >= 0 && slot < getContainerSize() && inventorySlot < inventory.items.size()
-                ? inventory.items.get(inventorySlot)
-                : ItemStack.EMPTY;
+        int physical = slot + 9;
+        return slot >= 0 && slot < getContainerSize() ? inventory.items.get(physical) : ItemStack.EMPTY;
     }
 
     @Override
@@ -53,7 +42,7 @@ public final class ScrollableInventoryStore implements Container {
         if (slot < 0 || slot >= getContainerSize() || amount <= 0) {
             return ItemStack.EMPTY;
         }
-        ItemStack removed = net.minecraft.world.ContainerHelper.removeItem(inventory.items, slot + 9, amount);
+        ItemStack removed = ContainerHelper.removeItem(inventory.items, slot + 9, amount);
         if (!removed.isEmpty()) {
             setChanged();
         }
@@ -84,7 +73,14 @@ public final class ScrollableInventoryStore implements Container {
 
     @Override
     public boolean stillValid(Player player) {
-        return player == owner;
+        return player == inventory.player;
+    }
+
+    @Override
+    public boolean canPlaceItem(int slot, ItemStack stack) {
+        return slot >= 0 && slot < InfiniteInventoryData.getUnlocked(inventory.player)
+                && !stack.is(InfiniteInvo.LOCKED_SLOT.asItem())
+                && InfiniteInventoryData.canInsertIntoVirtualSlot(stack);
     }
 
     @Override
@@ -92,5 +88,6 @@ public final class ScrollableInventoryStore implements Container {
         for (int slot = 0; slot < getContainerSize(); slot++) {
             inventory.items.set(slot + 9, ItemStack.EMPTY);
         }
+        setChanged();
     }
 }

@@ -10,6 +10,14 @@
   "infiniteinvo.configuration.title": "InfiniteInvo Configuration",
   "infiniteinvo.configuration.server": "Server",
   "infiniteinvo.configuration.client": "Client",
+  "infiniteinvo.configuration.server.button": "Server",
+  "infiniteinvo.configuration.server.tooltip": "Settings shared by the server and its clients.",
+  "infiniteinvo.configuration.client.button": "Client",
+  "infiniteinvo.configuration.client.tooltip": "Settings that affect only the local client.",
+  "infiniteinvo.configuration.debug.button": "Debug",
+  "infiniteinvo.configuration.debug.tooltip": "Troubleshooting settings. Leave these disabled during normal play.",
+  "infiniteinvo.configuration.section.infiniteinvo.common.toml": "InfiniteInvo",
+  "infiniteinvo.configuration.section.infiniteinvo.common.toml.title": "InfiniteInvo Configuration",
   "infiniteinvo.configuration.total_extra_slots": "Inventory Slot Capacity",
   "infiniteinvo.configuration.total_extra_slots.tooltip": "Total slots managed by InfiniteInvo, excluding the hotbar. Client and server must use the same value.",
   "infiniteinvo.configuration.start_unlocked_slots": "Initially Unlocked Slots",
@@ -29,5 +37,8 @@
   "infiniteinvo.configuration.remember_container_page": "Remember Container Page",
   "infiniteinvo.configuration.remember_container_page.tooltip": "Reopen ordinary containers on the most recently viewed extended inventory page.",
   "infiniteinvo.configuration.locked_item_drop_check_interval_ticks": "Locked Item Check Interval",
-  "infiniteinvo.configuration.locked_item_drop_check_interval_ticks.tooltip": "Ticks between locked-slot checks. One tick provides immediate cleanup."
+  "infiniteinvo.configuration.locked_item_drop_check_interval_ticks.tooltip": "Ticks between locked-slot checks. One tick provides immediate cleanup.",
+  "infiniteinvo.configuration.debug": "Debug",
+  "infiniteinvo.configuration.debug_logging": "Detailed Synchronization Logging",
+  "infiniteinvo.configuration.debug_logging.tooltip": "Logs detailed virtual inventory paging, slot positions, item movement, and synchronization. Enable only when investigating a problem."
 }

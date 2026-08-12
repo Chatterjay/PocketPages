@@ -15,6 +15,7 @@ public final class Config {
     public static final ModConfigSpec.IntValue LOCKED_ITEM_DROP_CHECK_INTERVAL_TICKS;
     public static final ModConfigSpec.BooleanValue EXPOSE_VIRTUAL_SLOTS_TO_AUTOMATION;
     public static final ModConfigSpec.BooleanValue REMEMBER_CONTAINER_PAGE;
+    public static final ModConfigSpec.BooleanValue DEBUG_LOGGING;
     public static final ModConfigSpec SPEC;
 
     static {
@@ -63,6 +64,13 @@ public final class Config {
                 .translation("infiniteinvo.configuration.remember_container_page")
                 .define("rememberContainerPage", true);
         BUILDER.pop();
+
+        BUILDER.push("debug");
+        DEBUG_LOGGING = BUILDER
+                .comment("Whether to log detailed virtual inventory paging and item synchronization. Disable during normal play.")
+                .translation("infiniteinvo.configuration.debug_logging")
+                .define("debugLogging", false);
+        BUILDER.pop();
         SPEC = BUILDER.build();
     }
 
@@ -74,7 +82,7 @@ public final class Config {
     }
 
     public static int startUnlockedSlots() {
-        return Math.min(Math.max(36, START_UNLOCKED_SLOTS.get()), totalExtraSlots());
+        return Math.min(Math.max(0, START_UNLOCKED_SLOTS.get()), totalExtraSlots());
     }
 
     public static int unlockCost(int alreadyUnlocked) {

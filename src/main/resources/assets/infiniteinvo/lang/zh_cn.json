@@ -10,6 +10,14 @@
   "infiniteinvo.configuration.title": "InfiniteInvo 配置",
   "infiniteinvo.configuration.server": "服务端",
   "infiniteinvo.configuration.client": "客户端",
+  "infiniteinvo.configuration.server.button": "服务端",
+  "infiniteinvo.configuration.server.tooltip": "服务端与客户端需要保持一致的设置。",
+  "infiniteinvo.configuration.client.button": "客户端",
+  "infiniteinvo.configuration.client.tooltip": "仅影响本地客户端的设置。",
+  "infiniteinvo.configuration.debug.button": "调试",
+  "infiniteinvo.configuration.debug.tooltip": "排查问题时使用的设置。正常游玩时请保持关闭。",
+  "infiniteinvo.configuration.section.infiniteinvo.common.toml": "InfiniteInvo",
+  "infiniteinvo.configuration.section.infiniteinvo.common.toml.title": "InfiniteInvo 配置",
   "infiniteinvo.configuration.total_extra_slots": "背包槽位容量",
   "infiniteinvo.configuration.total_extra_slots.tooltip": "InfiniteInvo 管理的槽位总数，不含快捷栏。客户端与服务端必须保持一致。",
   "infiniteinvo.configuration.start_unlocked_slots": "初始解锁槽位",
@@ -29,5 +37,8 @@
   "infiniteinvo.configuration.remember_container_page": "记忆容器页面",
   "infiniteinvo.configuration.remember_container_page.tooltip": "普通容器重新打开时，显示上次查看的扩展背包页。",
   "infiniteinvo.configuration.locked_item_drop_check_interval_ticks": "锁定物品检查间隔",
-  "infiniteinvo.configuration.locked_item_drop_check_interval_ticks.tooltip": "锁定槽位检查的间隔 tick。设为 1 可立即清理。"
+  "infiniteinvo.configuration.locked_item_drop_check_interval_ticks.tooltip": "锁定槽位检查的间隔 tick。设为 1 可立即清理。",
+  "infiniteinvo.configuration.debug": "调试",
+  "infiniteinvo.configuration.debug_logging": "详细同步日志",
+  "infiniteinvo.configuration.debug_logging.tooltip": "记录扩展背包分页、槽位位置、物品移动和同步过程。仅在排查问题时开启。"
 }

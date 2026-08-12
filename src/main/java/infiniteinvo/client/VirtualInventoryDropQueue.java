@@ -10,10 +10,9 @@ import net.minecraft.world.inventory.Slot;
 /**
  * Preserves IPN lock checks while forwarding standard throw clicks immediately.
  *
- * The first implementation queued one click per client tick to prevent stale
- * mirrored slots from overwriting picked-up items. The mirror is now reconciled
- * in real time, so delaying bulk actions only makes third-party inventory tools
- * visibly slow without adding any protection.
+ * The first implementation queued one click per client tick to work around
+ * stale page data. The inventory now uses real expanded slots, so delaying
+ * bulk actions only makes third-party inventory tools visibly slow.
  */
 public final class VirtualInventoryDropQueue {
     private static boolean dispatching;

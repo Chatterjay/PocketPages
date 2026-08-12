@@ -12,6 +12,8 @@ import infiniteinvo.network.CloseCreativeInventoryPagingPayload;
 import infiniteinvo.network.CreativeInventoryPageDataPayload;
 import infiniteinvo.network.CreativeInventoryPageRequestPayload;
 import infiniteinvo.network.ClearInfiniteInventoryPayload;
+import infiniteinvo.network.ScrollableInventoryPageRequestPayload;
+import infiniteinvo.network.ScrollableInventoryPageDataPayload;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -34,7 +36,8 @@ import net.neoforged.neoforge.event.AddPackFindersEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.items.wrapper.PlayerInvWrapper;
+import net.neoforged.neoforge.items.wrapper.CombinedInvWrapper;
+import net.neoforged.neoforge.items.wrapper.InvWrapper;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -89,7 +92,11 @@ public final class InfiniteInvo {
         event.registerEntity(InfiniteInvoCapabilities.VIRTUAL_INVENTORY, EntityType.PLAYER,
                 (player, context) -> new VirtualInventoryItemHandler(player.getInventory()));
         event.registerEntity(Capabilities.ItemHandler.ENTITY_AUTOMATION, EntityType.PLAYER,
-                (player, context) -> new PlayerInvWrapper(player.getInventory()));
+                (player, context) -> Config.exposeVirtualSlotsToAutomation()
+                        ? new CombinedInvWrapper(
+                                new InvWrapper(player.getInventory()),
+                                new VirtualInventoryItemHandler(player.getInventory()))
+                        : new InvWrapper(player.getInventory()));
     }
 
     private void addCreativeTabItems(BuildCreativeModeTabContentsEvent event) {
@@ -127,6 +134,14 @@ public final class InfiniteInvo {
                 ClearInfiniteInventoryPayload.TYPE,
                 ClearInfiniteInventoryPayload.STREAM_CODEC,
                 ClearInfiniteInventoryPayload::handle);
+        event.registrar("1").playToServer(
+                ScrollableInventoryPageRequestPayload.TYPE,
+                ScrollableInventoryPageRequestPayload.STREAM_CODEC,
+                ScrollableInventoryPageRequestPayload::handle);
+        event.registrar("1").playToClient(
+                ScrollableInventoryPageDataPayload.TYPE,
+                ScrollableInventoryPageDataPayload.STREAM_CODEC,
+                ScrollableInventoryPageDataPayload::handle);
         event.registrar("1").playToClient(
                 CreativeInventoryPageDataPayload.TYPE,
                 CreativeInventoryPageDataPayload.STREAM_CODEC,

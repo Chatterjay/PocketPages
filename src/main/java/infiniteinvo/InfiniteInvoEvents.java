@@ -4,6 +4,7 @@ import com.mojang.brigadier.Command;
 import infiniteinvo.inventory.InfiniteInventoryData;
 import infiniteinvo.inventory.InfiniteInventoryState;
 import infiniteinvo.inventory.CreativeInventoryPaging;
+import infiniteinvo.inventory.ExtendedInventory;
 import infiniteinvo.inventory.ScrollableInventoryMenu;
 import net.minecraft.commands.Commands;
 import net.minecraft.server.level.ServerPlayer;
@@ -29,15 +30,11 @@ public final class InfiniteInvoEvents {
                 }))
                 .then(Commands.literal("clear").executes(context -> {
                     ServerPlayer player = context.getSource().getPlayerOrException();
-                    InfiniteInventoryState state = InfiniteInventoryData.state(player);
                     int cleared = 0;
                     for (int slot = 0; slot < InfiniteInventoryData.getUnlocked(player); slot++) {
-                        if (!state.getItem(slot).isEmpty()) {
+                        if (!player.getInventory().items.get(slot + 9).isEmpty()) {
                             cleared++;
                         }
-                    }
-                    for (int slot = 9; slot < 36; slot++) {
-                        player.getInventory().setItem(slot, ItemStack.EMPTY);
                     }
                     CreativeInventoryPaging.clearAll(player);
                     return cleared;
@@ -52,21 +49,27 @@ public final class InfiniteInvoEvents {
 
         InfiniteInventoryState previous = InfiniteInventoryData.state(original);
         boolean keepInventory = original.serverLevel().getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_KEEPINVENTORY);
-        if (!event.isWasDeath() || keepInventory) {
+        if (!event.isWasDeath()) {
             return;
         }
 
-        dropExtraSlots(original, previous);
-        InfiniteInventoryState replacementState = new InfiniteInventoryState();
-        if (Config.KEEP_UNLOCKS_ON_DEATH.get()) {
-            replacementState.setUnlockedSlots(previous.getUnlockedSlots());
+        if (!keepInventory) {
+            InfiniteInventoryState replacementState = new InfiniteInventoryState();
+            if (Config.KEEP_UNLOCKS_ON_DEATH.get()) {
+                replacementState.setUnlockedSlots(previous.getUnlockedSlots());
+            }
+            InfiniteInventoryData.replaceState(replacement, replacementState);
         }
-        InfiniteInventoryData.replaceState(replacement, replacementState);
+
+        // Vanilla only knows about its original slots during the clone. Restore
+        // the expanded physical list from SavedData after the replacement exists.
+        ExtendedInventory.initialize(replacement);
     }
 
     @SubscribeEvent
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            ExtendedInventory.initialize(player);
             InfiniteInventoryData.dropLegacyPlaceholderItems(player);
         }
     }
@@ -84,30 +87,11 @@ public final class InfiniteInvoEvents {
             return;
         }
 
-        if (player.containerMenu instanceof ScrollableInventoryMenu menu) {
-            menu.syncNativeMirrorFromPlayer(player);
-        }
-
         if (player.tickCount % Config.LOCKED_ITEM_DROP_CHECK_INTERVAL_TICKS.get() != 0) {
             return;
         }
 
-        CreativeInventoryPaging.dropMappedLockedItems(player);
         InfiniteInventoryData.dropLockedItems(player);
-    }
-
-    private static void dropExtraSlots(ServerPlayer player, InfiniteInventoryState state) {
-        ServerLevel level = player.serverLevel();
-        int unlockedSlots = InfiniteInventoryData.getUnlocked(player);
-        for (int slot = 27; slot < unlockedSlots; slot++) {
-            ItemStack stack = state.getItem(slot);
-            if (stack.isEmpty()) {
-                continue;
-            }
-            ItemEntity item = new ItemEntity(level, player.getX(), player.getY() + 0.5, player.getZ(), stack.copy());
-            item.setDefaultPickUpDelay();
-            level.addFreshEntity(item);
-        }
     }
 
 }

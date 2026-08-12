@@ -1,6 +1,7 @@
 package infiniteinvo.inventory;
 
 import infiniteinvo.InfiniteInvo;
+import infiniteinvo.DebugLog;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.Slot;
@@ -34,16 +35,29 @@ final class ScrollSlot extends Slot {
     public void set(ItemStack stack) {
         if (virtualIndex < container.getContainerSize() && (menu.isUnlocked(virtualIndex) || stack.isEmpty())
                 && (virtualIndex < 27 || InfiniteInventoryData.canInsertIntoVirtualSlot(stack))) {
+            DebugLog.debug("[Paging][Server] slot set player={} virtualSlot={} physicalMenuSlot={} old={} new={}",
+                    menu.getPlayerName(), virtualIndex, getSlotIndex(), DebugLog.stack(getItem()), DebugLog.stack(stack));
             container.setItem(virtualIndex, stack);
             setChanged();
+        } else {
+            DebugLog.debug("[Paging][Server] slot set rejected player={} virtualSlot={} value={} unlocked={}",
+                    menu.getPlayerName(), virtualIndex, DebugLog.stack(stack), menu.isUnlocked(virtualIndex));
         }
     }
 
     @Override
     public ItemStack remove(int amount) {
-        return virtualIndex < container.getContainerSize() && (menu.isUnlocked(virtualIndex) || hasItem())
-                ? container.removeItem(virtualIndex, amount)
-                : ItemStack.EMPTY;
+        if (virtualIndex >= container.getContainerSize() || (!menu.isUnlocked(virtualIndex) && !hasItem())) {
+            DebugLog.debug("[Paging][Server] slot remove rejected player={} virtualSlot={} amount={}",
+                    menu.getPlayerName(), virtualIndex, amount);
+            return ItemStack.EMPTY;
+        }
+        ItemStack before = getItem().copy();
+        ItemStack removed = container.removeItem(virtualIndex, amount);
+        DebugLog.debug("[Paging][Server] slot remove player={} virtualSlot={} amount={} before={} removed={} after={}",
+                menu.getPlayerName(), virtualIndex, amount, DebugLog.stack(before), DebugLog.stack(removed),
+                DebugLog.stack(container.getItem(virtualIndex)));
+        return removed;
     }
 
     @Override

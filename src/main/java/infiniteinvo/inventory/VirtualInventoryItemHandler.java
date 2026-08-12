@@ -59,7 +59,7 @@ public final class VirtualInventoryItemHandler implements IItemHandlerModifiable
     }
 
     private int absoluteSlot(int virtualSlot) {
-        return inventory.items.size() + virtualSlot;
+        return 36 + virtualSlot;
     }
 
     private boolean isValidSlot(int slot) {

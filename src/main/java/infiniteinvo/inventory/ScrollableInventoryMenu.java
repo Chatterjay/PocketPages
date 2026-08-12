@@ -2,6 +2,7 @@ package infiniteinvo.inventory;
 
 import infiniteinvo.Config;
 import infiniteinvo.InfiniteInvo;
+import infiniteinvo.DebugLog;
 import org.anti_ad.mc.ipn.api.IPNSlotsIgnoreForInventoryTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
@@ -15,6 +16,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.StackedContents;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.inventory.RecipeBookMenu;
 import net.minecraft.world.inventory.RecipeBookType;
@@ -27,6 +29,8 @@ import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @IPNSlotsIgnoreForInventoryTypes(value = {}, ignoreCraftingSlots = true)
@@ -45,9 +49,11 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
     private final ResultContainer resultSlots = new ResultContainer();
     private final CraftingContainer craftSlots = new TransientCraftingContainer(this, 2, 2);
     private final ContainerData data;
+    private final DataSlot scrollData;
     private final ScrollSlot[] gridSlots = new ScrollSlot[VISIBLE_GRID_SLOTS];
     private int scrollPos;
     private final int maxScroll;
+    private int lastScrollRequestId;
 
     public ScrollableInventoryMenu(int containerId, Inventory playerInventory) {
         this(containerId, playerInventory, ScrollableInventoryStore.load(playerInventory.player), new SimpleData(playerInventory.player));
@@ -59,6 +65,7 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
         this.store = store;
         this.data = data;
         this.maxScroll = Math.max(0, (int)Math.ceil(store.getContainerSize() / (double)COLUMNS) - VISIBLE_ROWS);
+        this.scrollData = new ScrollData(this);
 
         addResultAndCraftingSlots();
         addArmorSlots();
@@ -66,6 +73,7 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
         addHotbarSlots();
         addOffhandSlot();
         addDataSlots(data);
+        addDataSlot(scrollData);
         updateScroll(0);
     }
 
@@ -82,11 +90,26 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
     }
 
     public void updateScroll(int delta) {
-        scrollPos = Math.max(0, Math.min(maxScroll, scrollPos + delta));
+        setScrollPosition(scrollPos + delta);
+    }
+
+    public void setScrollPosition(int position) {
+        int previous = scrollPos;
+        scrollPos = Math.max(0, Math.min(maxScroll, position));
         int base = scrollPos * COLUMNS;
         for (int i = 0; i < gridSlots.length; i++) {
             gridSlots[i].setVirtualIndex(base + i);
         }
+        DebugLog.debug("[Paging][Server] menu page changed player={} oldPage={} requestedPage={} resolvedPage={} virtualStart={} visibleSlots={}",
+                playerInventory.player.getName().getString(), previous, position, scrollPos, base, describeVisibleSlots());
+    }
+
+    public boolean acceptScrollRequest(int requestId) {
+        if (requestId <= lastScrollRequestId) {
+            return false;
+        }
+        lastScrollRequestId = requestId;
+        return true;
     }
 
     public int getMaxScroll() {
@@ -117,13 +140,29 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
         return store;
     }
 
-    /** Keeps the vanilla 27-slot main-inventory view aligned while this menu is active. */
-    public void syncNativeMirrorFromPlayer(Player player) {
-        store.syncNativeMirrorFromPlayer(player);
+    public String getPlayerName() {
+        return playerInventory.player.getName().getString();
     }
 
-    public void syncNativeMirrorSlotFromPlayer(Player player, int inventorySlot) {
-        store.syncNativeMirrorSlotFromPlayer(player, inventorySlot);
+    public String describeVisibleSlots() {
+        StringBuilder result = new StringBuilder("[");
+        for (int i = 0; i < gridSlots.length; i++) {
+            if (i > 0) {
+                result.append(", ");
+            }
+            ScrollSlot slot = gridSlots[i];
+            result.append(slot.getContainerSlot()).append('=').append(DebugLog.stack(slot.getItem()));
+        }
+        return result.append(']').toString();
+    }
+
+    /** Snapshot the page content sent with a confirmed page remap. */
+    public List<ItemStack> visibleStacks() {
+        List<ItemStack> stacks = new ArrayList<>(gridSlots.length);
+        for (ScrollSlot slot : gridSlots) {
+            stacks.add(slot.getItem().copy());
+        }
+        return stacks;
     }
 
     public boolean unlockOne(Player player) {
@@ -319,12 +358,9 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
             setCarried(ItemStack.EMPTY);
             resultSlots.clearContent();
             returnCraftingItems(serverPlayer);
-            store.syncNativeMirrorFromPlayer(serverPlayer);
-            store.syncToPlayer(serverPlayer);
             InfiniteInventoryData.dropLockedItems(serverPlayer);
         } else {
             resultSlots.clearContent();
-            store.syncToPlayer(player);
         }
     }
 
@@ -366,12 +402,6 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
                 return true;
             }
             return false;
-        } else if (id == 1) {
-            updateScroll(-1);
-            return true;
-        } else if (id == 2) {
-            updateScroll(1);
-            return true;
         }
         return super.clickMenuButton(player, id);
     }
@@ -412,6 +442,24 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
         @Override
         public int getCount() {
             return 2;
+        }
+    }
+
+    private static final class ScrollData extends DataSlot {
+        private final ScrollableInventoryMenu menu;
+
+        private ScrollData(ScrollableInventoryMenu menu) {
+            this.menu = menu;
+        }
+
+        @Override
+        public int get() {
+            return menu.scrollPos;
+        }
+
+        @Override
+        public void set(int value) {
+            menu.setScrollPosition(value);
         }
     }
 }
