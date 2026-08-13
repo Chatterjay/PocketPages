@@ -6,7 +6,8 @@
     "MutableSlotMixin",
     "ExtendedInventoryMixin",
     "InventoryBoundsMixin",
-    "InventoryOverflowMixin"
+    "InventoryOverflowMixin",
+    "PlayerInvWrapperMixin"
   ],
   "client": [
     "client.CreativeSlotWrapperMixin",
