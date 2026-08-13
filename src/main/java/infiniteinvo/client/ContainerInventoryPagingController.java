@@ -246,6 +246,16 @@ public final class ContainerInventoryPagingController {
         }
     }
 
+    /** True while a regular container's player-storage page is being remapped. */
+    public static boolean isPageChangePending(net.minecraft.world.inventory.AbstractContainerMenu menu) {
+        if (!(Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> screen)
+                || screen.getMenu() != menu) {
+            return false;
+        }
+        State state = STATES.get(screen);
+        return state != null && state.open && (state.awaitingPage || state.requestQueued);
+    }
+
     public static void receivePageData(int row, int unlocked, int sessionId, int requestId) {
         DebugLog.debug("[Paging][Client] container page confirmation row={} session={} requestId={} unlocked={}",
                 row, sessionId, requestId, unlocked);

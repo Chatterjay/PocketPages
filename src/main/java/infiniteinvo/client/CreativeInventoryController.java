@@ -137,6 +137,16 @@ public final class CreativeInventoryController {
         }
     }
 
+    /** True while the creative inventory's mapped player page is being remapped. */
+    public static boolean isPageChangePending(net.minecraft.world.inventory.AbstractContainerMenu menu) {
+        if (!(Minecraft.getInstance().screen instanceof CreativeModeInventoryScreen screen)
+                || screen.getMenu() != menu) {
+            return false;
+        }
+        State state = STATES.get(screen);
+        return state != null && state.open && (state.awaitingPage || state.requestQueued);
+    }
+
     /** Coalesces rapid wheel and drag updates before replacing the native inventory page. */
     public static void tick() {
         for (State state : List.copyOf(STATES.values())) {

@@ -445,6 +445,13 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
         return Minecraft.getInstance().screen instanceof ScrollableInventoryScreen screen ? screen : null;
     }
 
+    /** True while the visible scroll slots are awaiting a server-confirmed page remap. */
+    public static boolean isPageChangePending(net.minecraft.world.inventory.AbstractContainerMenu menu) {
+        ScrollableInventoryScreen screen = current();
+        return screen != null && screen.menu == menu
+                && (screen.inFlightScrollPos >= 0 || screen.requestedScrollPos != screen.menu.getScrollPos());
+    }
+
     /** Applies the server-confirmed page and its authoritative visible stacks. */
     public static void applyServerPage(int containerId, int page, int requestId, List<ItemStack> stacks) {
         ScrollableInventoryScreen screen = current();

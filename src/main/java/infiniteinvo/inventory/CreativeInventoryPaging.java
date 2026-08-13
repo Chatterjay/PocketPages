@@ -108,6 +108,20 @@ public final class CreativeInventoryPaging {
                 : slot.container == inventory && slot.getContainerSlot() >= 9 && slot.getContainerSlot() < 36;
     }
 
+    /** Returns whether this menu currently has a real InfiniteInvo page mapped into it. */
+    public static boolean isPagedPlayerStorageMenu(AbstractContainerMenu menu) {
+        return MENU_MAPPINGS.containsKey(menu);
+    }
+
+    /**
+     * Returns a stable InfiniteInvo storage index for one mapped menu slot,
+     * or {@code -1} when the slot is not part of the current player page.
+     */
+    public static int getPagedStorageSlot(AbstractContainerMenu menu, Slot slot) {
+        MenuMapping mapping = MENU_MAPPINGS.get(menu);
+        return mapping == null ? -1 : mapping.storageSlot(slot);
+    }
+
     public static void clearAll(ServerPlayer player) {
         ExtendedInventory.ensure(player.getInventory());
         for (int slot = 0; slot < InfiniteInventoryData.getUnlocked(player); slot++) {
@@ -225,6 +239,14 @@ public final class CreativeInventoryPaging {
 
         boolean contains(Slot slot) {
             return identities.containsKey(slot);
+        }
+
+        int storageSlot(Slot slot) {
+            if (!contains(slot)) {
+                return -1;
+            }
+            Slot target = slot instanceof WrappedSlotAccess wrapped ? wrapped.infiniteinvo$getTargetSlot() : slot;
+            return target.container instanceof ExtendedInventoryContainer ? target.getContainerSlot() : -1;
         }
     }
 }
