@@ -1,6 +1,5 @@
 package infiniteinvo.inventory;
 
-import infiniteinvo.Config;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 
@@ -13,9 +12,7 @@ public final class InfiniteInventoryItemHandler {
 
     public static int getSlots(Inventory inventory) {
         ExtendedInventory.ensure(inventory);
-        return Config.exposeVirtualSlotsToAutomation()
-                ? inventory.items.size()
-                : Math.min(inventory.items.size(), FIRST_EXTRA_INVENTORY_SLOT);
+        return inventory.items.size();
     }
 
     public static boolean isOverflowSlot(Inventory inventory, int slot) {
@@ -24,11 +21,11 @@ public final class InfiniteInventoryItemHandler {
     }
 
     public static boolean isExposedOverflowSlot(Inventory inventory, int slot) {
-        return Config.exposeVirtualSlotsToAutomation() && isOverflowSlot(inventory, slot);
+        return isOverflowSlot(inventory, slot);
     }
 
     public static boolean isHiddenOverflowSlot(Inventory inventory, int slot) {
-        return !Config.exposeVirtualSlotsToAutomation() && isOverflowSlot(inventory, slot);
+        return false;
     }
 
     public static int getVirtualSlots(Inventory inventory) {
@@ -61,6 +58,7 @@ public final class InfiniteInventoryItemHandler {
             inventory.items.set(slot, existing.isEmpty()
                     ? stack.copyWithCount(moved)
                     : existing.copyWithCount(existing.getCount() + moved));
+            inventory.setChanged();
         }
         return moved == stack.getCount() ? ItemStack.EMPTY : stack.copyWithCount(stack.getCount() - moved);
     }
@@ -88,6 +86,7 @@ public final class InfiniteInventoryItemHandler {
         if (isOverflowSlot(inventory, slot) && isUnlocked(inventory, slot)
                 && (stack.isEmpty() || InfiniteInventoryData.canInsertIntoVirtualSlot(stack))) {
             inventory.items.set(slot, stack);
+            inventory.setChanged();
         }
     }
 

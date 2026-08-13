@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import infiniteinvo.api.InfiniteInvoCapabilities;
 import infiniteinvo.inventory.ScrollableInventoryMenu;
 import infiniteinvo.inventory.InfiniteInventoryState;
+import infiniteinvo.inventory.PlayerInventoryItemHandler;
 import infiniteinvo.inventory.VirtualInventoryItemHandler;
 import infiniteinvo.item.LockedSlotItem;
 import infiniteinvo.item.UnlockSlotItem;
@@ -36,8 +37,6 @@ import net.neoforged.neoforge.event.AddPackFindersEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.items.wrapper.CombinedInvWrapper;
-import net.neoforged.neoforge.items.wrapper.InvWrapper;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -91,12 +90,10 @@ public final class InfiniteInvo {
     private void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerEntity(InfiniteInvoCapabilities.VIRTUAL_INVENTORY, EntityType.PLAYER,
                 (player, context) -> new VirtualInventoryItemHandler(player.getInventory()));
+        event.registerEntity(Capabilities.ItemHandler.ENTITY, EntityType.PLAYER,
+                (player, context) -> new PlayerInventoryItemHandler(player.getInventory()));
         event.registerEntity(Capabilities.ItemHandler.ENTITY_AUTOMATION, EntityType.PLAYER,
-                (player, context) -> Config.exposeVirtualSlotsToAutomation()
-                        ? new CombinedInvWrapper(
-                                new InvWrapper(player.getInventory()),
-                                new VirtualInventoryItemHandler(player.getInventory()))
-                        : new InvWrapper(player.getInventory()));
+                (player, context) -> new PlayerInventoryItemHandler(player.getInventory()));
     }
 
     private void addCreativeTabItems(BuildCreativeModeTabContentsEvent event) {

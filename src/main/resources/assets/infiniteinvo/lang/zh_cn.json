@@ -32,8 +32,6 @@
   "infiniteinvo.configuration.use_experience_points.tooltip": "使用经验点而不是经验等级计费。",
   "infiniteinvo.configuration.keep_unlocks_on_death": "死亡保留解锁",
   "infiniteinvo.configuration.keep_unlocks_on_death.tooltip": "在 keepInventory 关闭时，保留已解锁槽位。",
-  "infiniteinvo.configuration.expose_virtual_slots_to_automation": "向自动化暴露扩展槽位",
-  "infiniteinvo.configuration.expose_virtual_slots_to_automation.tooltip": "开启后，NeoForge 标准玩家背包 handler 也会暴露 InfiniteInvo 槽位；显式的虚拟背包 Capability 始终可用。",
   "infiniteinvo.configuration.remember_container_page": "记忆容器页面",
   "infiniteinvo.configuration.remember_container_page.tooltip": "普通容器重新打开时，显示上次查看的扩展背包页。",
   "infiniteinvo.configuration.locked_item_drop_check_interval_ticks": "锁定物品检查间隔",

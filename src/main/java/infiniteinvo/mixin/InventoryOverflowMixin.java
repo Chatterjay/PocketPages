@@ -36,6 +36,12 @@ abstract class InventoryOverflowMixin {
             if (!stack.isEmpty()) {
                 player.drop(stack, false);
             }
+            if (sendPacket) {
+                serverPlayer.inventoryMenu.broadcastChanges();
+                if (serverPlayer.containerMenu != serverPlayer.inventoryMenu) {
+                    serverPlayer.containerMenu.broadcastChanges();
+                }
+            }
             callback.cancel();
         }
     }
