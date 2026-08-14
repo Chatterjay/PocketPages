@@ -122,6 +122,12 @@ public final class CreativeInventoryPaging {
         return mapping == null ? -1 : mapping.storageSlot(slot);
     }
 
+    /** Returns the current extended-inventory index for a mapped slot or {@code -1}. */
+    public static int getMappedStorageSlot(Slot slot) {
+        Slot target = slot instanceof WrappedSlotAccess wrapped ? wrapped.infiniteinvo$getTargetSlot() : slot;
+        return target.container instanceof ExtendedInventoryContainer ? target.getContainerSlot() : -1;
+    }
+
     public static void clearAll(ServerPlayer player) {
         ExtendedInventory.ensure(player.getInventory());
         for (int slot = 0; slot < InfiniteInventoryData.getUnlocked(player); slot++) {
@@ -245,8 +251,7 @@ public final class CreativeInventoryPaging {
             if (!contains(slot)) {
                 return -1;
             }
-            Slot target = slot instanceof WrappedSlotAccess wrapped ? wrapped.infiniteinvo$getTargetSlot() : slot;
-            return target.container instanceof ExtendedInventoryContainer ? target.getContainerSlot() : -1;
+            return getMappedStorageSlot(slot);
         }
     }
 }

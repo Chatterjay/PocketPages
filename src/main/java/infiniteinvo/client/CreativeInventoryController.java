@@ -2,11 +2,13 @@ package infiniteinvo.client;
 
 import infiniteinvo.InfiniteInvo;
 import infiniteinvo.DebugLog;
+import infiniteinvo.Config;
 import infiniteinvo.inventory.CreativeInventoryPaging;
 import infiniteinvo.inventory.InfiniteInventoryData;
 import infiniteinvo.network.CloseCreativeInventoryPagingPayload;
 import infiniteinvo.network.CreativeInventoryPageRequestPayload;
 import infiniteinvo.network.ClearInfiniteInventoryPayload;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -57,6 +59,7 @@ public final class CreativeInventoryController {
             request(state, 0, true);
         }
         drawScrollbar(event.getGuiGraphics(), screen, state.requestedRow);
+        drawDisabledSlots(event.getGuiGraphics(), screen, state.unlockedSlots);
     }
 
     public static void mouseScrolled(ScreenEvent.MouseScrolled.Pre event) {
@@ -208,6 +211,7 @@ public final class CreativeInventoryController {
         IpnCompat.applyMappedPageLocks(row);
         if (creativeState != null) {
             creativeState.displayedRow = row;
+            creativeState.unlockedSlots = unlockedSlots;
             creativeState.pageLocksApplied = true;
             creativeState.awaitingPage = false;
             creativeState.inFlightRow = -1;
@@ -326,6 +330,32 @@ public final class CreativeInventoryController {
         return null;
     }
 
+    private static void drawDisabledSlots(GuiGraphics graphics, CreativeModeInventoryScreen screen, int unlockedSlots) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) {
+            return;
+        }
+
+        List<Slot> storageSlots = new ArrayList<>();
+        for (Slot slot : screen.getMenu().slots) {
+            if (CreativeInventoryPaging.getMappedStorageSlot(slot) >= 0) {
+                storageSlots.add(slot);
+            }
+        }
+        if (storageSlots.size() != CreativeInventoryPaging.PAGE_SIZE) {
+            return;
+        }
+
+        for (Slot slot : storageSlots) {
+            int virtualSlot = CreativeInventoryPaging.getMappedStorageSlot(slot);
+            if (virtualSlot >= Config.totalExtraSlots()) {
+                graphics.blit(INVENTORY_TEXTURE, slot.x, slot.y, 1, 167, 16, 16);
+            } else if (virtualSlot >= unlockedSlots) {
+                graphics.blit(INVENTORY_TEXTURE, slot.x, slot.y, 19, 167, 16, 16);
+            }
+        }
+    }
+
     private static void drawScrollbar(GuiGraphics graphics, CreativeModeInventoryScreen screen, int row) {
         int x = TRACK_X;
         int y = TRACK_Y;
@@ -395,5 +425,6 @@ public final class CreativeInventoryController {
         private boolean dragging;
         private boolean destroyRequested;
         private int requestDelay;
+        private int unlockedSlots = Integer.MAX_VALUE;
     }
 }
