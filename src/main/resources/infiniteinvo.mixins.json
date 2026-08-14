@@ -5,6 +5,7 @@
   "mixins": [
     "MutableSlotMixin",
     "ExtendedInventoryMixin",
+    "SelectedItemDropMixin",
     "InventoryBoundsMixin",
     "InventoryOverflowMixin",
     "PlayerInvWrapperMixin",
@@ -14,6 +15,7 @@
   "client": [
     "client.AbstractContainerScreenAccessor",
     "client.CreativeSlotWrapperMixin",
+    "client.CreativeHotbarDropMixin",
     "client.ClientMappedPlayerSlotLockMixin",
     "client.ClientQuickCraftResetMixin",
     "client.ClientInventoryDropQueueMixin",

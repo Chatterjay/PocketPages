@@ -39,3 +39,6 @@ run/
 **/src/generated/**/.cache/
 repo/
 !**/src/**/repo/
+
+### Local documentation ###
+INTEGRATION.md
