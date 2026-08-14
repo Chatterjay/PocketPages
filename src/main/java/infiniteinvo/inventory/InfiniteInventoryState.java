@@ -107,7 +107,7 @@ public final class InfiniteInventoryState implements INBTSerializable<CompoundTa
         ensureSize();
         for (int slot = 0; slot < size(); slot++) {
             int physicalSlot = slot + 9;
-            items.set(slot, physicalSlot < inventory.items.size()
+            items.set(slot, physicalSlot < Inventory.INVENTORY_SIZE
                     ? inventory.items.get(physicalSlot)
                     : ItemStack.EMPTY);
         }

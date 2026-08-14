@@ -119,6 +119,10 @@ dependencies {
     // Optional compile-time integration with Inventory Profiles Next. The annotation is inert when IPN is absent.
     compileOnly files("run/mods/InventoryProfilesNext-neoforge-1.21.1-2.2.5.jar")
 
+    // Optional Curios API used to expose Curios' validated equipment slots through
+    // InfiniteInvo's unified player item-handler capability.
+    compileOnly files("run/mods/curios-neoforge-9.5.1+1.21.1.jar")
+
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
     // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"

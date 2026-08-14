@@ -38,22 +38,6 @@ public final class ContainerInventoryPagingController {
     private ContainerInventoryPagingController() {
     }
 
-    /**
-     * Starts the page request before vanilla has a chance to render the
-     * physical storage slots left over from the previous container page.
-     */
-    public static void opening(Screen newScreen) {
-        if (!(newScreen instanceof AbstractContainerScreen<?> screen) || screen instanceof CreativeModeInventoryScreen
-                || screen instanceof ScrollableInventoryScreen) {
-            return;
-        }
-
-        Grid grid = findPlayerGrid(screen);
-        if (grid != null) {
-            beginOpening(screen, grid);
-        }
-    }
-
     public static void render(ContainerScreenEvent.Render.Foreground event) {
         if (!(event.getContainerScreen() instanceof AbstractContainerScreen<?> screen) || screen instanceof CreativeModeInventoryScreen
                 || screen instanceof ScrollableInventoryScreen) {
@@ -71,7 +55,7 @@ public final class ContainerInventoryPagingController {
             beginOpening(screen, grid);
         }
         drawScrollbar(event.getGuiGraphics(), screen, grid, state.requestedRow);
-        drawLockedSlots(event.getGuiGraphics(), grid, state.displayedRow, state.unlockedSlots);
+        drawLockedSlots(event.getGuiGraphics(), screen, grid, state.unlockedSlots);
     }
 
     public static void mouseScrolled(ScreenEvent.MouseScrolled.Pre event) {
@@ -97,6 +81,11 @@ public final class ContainerInventoryPagingController {
         }
 
         if (state.awaitingPage || state.requestQueued) {
+            event.setCanceled(true);
+            return;
+        }
+        if (isOverLockedSlot(screen, state.grid, state.unlockedSlots, event.getMouseX(), event.getMouseY())) {
+            cancelQuickCraft(event.getScreen());
             event.setCanceled(true);
             return;
         }
@@ -146,12 +135,12 @@ public final class ContainerInventoryPagingController {
 
     public static void closing(ScreenEvent.Closing event) {
         if (event.getScreen() instanceof AbstractContainerScreen<?> screen) {
-            CreativeInventoryPaging.restoreMenu(screen.getMenu());
-            if (Minecraft.getInstance().player != null) {
-                CreativeInventoryPaging.restoreMenu(Minecraft.getInstance().player.inventoryMenu);
-            }
             State state = STATES.remove(screen);
             if (state != null && state.open) {
+                CreativeInventoryPaging.restoreMenu(screen.getMenu());
+                if (Minecraft.getInstance().player != null) {
+                    CreativeInventoryPaging.restoreMenu(Minecraft.getInstance().player.inventoryMenu);
+                }
                 state.open = false;
                 if (state.pageLocksApplied) {
                     IpnCompat.captureMappedPageLocks(state.displayedRow);
@@ -297,6 +286,17 @@ public final class ContainerInventoryPagingController {
         return inventorySlot - 9 < InfiniteInventoryData.getUnlocked(Minecraft.getInstance().player);
     }
 
+    /** Returns true for one of the disabled page-fill slots in an open container. */
+    public static boolean isMappedSlotLocked(Slot slot) {
+        if (!(Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> screen)
+                || screen instanceof CreativeModeInventoryScreen || screen instanceof ScrollableInventoryScreen) {
+            return false;
+        }
+        int virtualSlot = CreativeInventoryPaging.getPagedStorageSlot(screen.getMenu(), slot);
+        return virtualSlot >= 0
+                && virtualSlot >= InfiniteInventoryData.getUnlocked(Minecraft.getInstance().player);
+    }
+
     private static void requestFromMouse(State state, AbstractContainerScreen<?> screen, double mouseY) {
         int relative = (int) Math.round(mouseY - screen.getGuiTop() - state.grid.y + 1);
         int row = Math.round((float) relative / TRACK_HEIGHT * CreativeInventoryPaging.maxRow());
@@ -342,6 +342,18 @@ public final class ContainerInventoryPagingController {
                 || isOverScrollbar(screen, grid, mouseX, mouseY);
     }
 
+    private static boolean isOverLockedSlot(AbstractContainerScreen<?> screen, Grid grid, int unlockedSlots,
+                                            double mouseX, double mouseY) {
+        for (Slot slot : grid.slots) {
+            if (mouseX >= screen.getGuiLeft() + slot.x && mouseX < screen.getGuiLeft() + slot.x + 16
+                    && mouseY >= screen.getGuiTop() + slot.y && mouseY < screen.getGuiTop() + slot.y + 16
+                    && CreativeInventoryPaging.getPagedStorageSlot(screen.getMenu(), slot) >= unlockedSlots) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static void drawScrollbar(GuiGraphics graphics, AbstractContainerScreen<?> screen, Grid grid, int row) {
         int x = grid.rightmostSlotX + 19;
         int y = grid.y - 1;
@@ -352,12 +364,12 @@ public final class ContainerInventoryPagingController {
         graphics.blit(INVENTORY_TEXTURE, x, knobY, 60, 166, KNOB_SIZE, KNOB_SIZE);
     }
 
-    private static void drawLockedSlots(GuiGraphics graphics, Grid grid, int row, int unlockedSlots) {
-        for (int index = 0; index < grid.slots.size(); index++) {
-            Slot slot = grid.slots.get(index);
-            int virtualSlot = slot.getContainerSlot() - 9;
+    private static void drawLockedSlots(GuiGraphics graphics, AbstractContainerScreen<?> screen,
+                                        Grid grid, int unlockedSlots) {
+        for (Slot slot : grid.slots) {
+            int virtualSlot = CreativeInventoryPaging.getPagedStorageSlot(screen.getMenu(), slot);
             if (virtualSlot >= unlockedSlots) {
-                graphics.blit(INVENTORY_TEXTURE, slot.x - 1, slot.y - 1, 18, 166, 18, 18);
+                graphics.blit(INVENTORY_TEXTURE, slot.x, slot.y, 1, 167, 16, 16);
             }
         }
     }

@@ -7,13 +7,17 @@
     "ExtendedInventoryMixin",
     "InventoryBoundsMixin",
     "InventoryOverflowMixin",
-    "PlayerInvWrapperMixin"
+    "PlayerInvWrapperMixin",
+    "MappedPlayerSlotLockMixin",
+    "Ae2PlayerInventorySlotsMixin"
   ],
   "client": [
+    "client.AbstractContainerScreenAccessor",
     "client.CreativeSlotWrapperMixin",
     "client.ClientMappedPlayerSlotLockMixin",
     "client.ClientQuickCraftResetMixin",
     "client.ClientInventoryDropQueueMixin",
+    "client.CuriosRecipeBookLayoutMixin",
     "client.IpnAreaTypesMixin",
     "client.IpnLockSlotsHandlerMixin"
   ],

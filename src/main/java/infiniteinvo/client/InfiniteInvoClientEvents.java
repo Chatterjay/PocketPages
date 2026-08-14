@@ -16,16 +16,17 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 @EventBusSubscriber(modid = InfiniteInvo.MODID, value = Dist.CLIENT)
 public final class InfiniteInvoClientEvents {
+    private static boolean openInfiniteInventoryNextTick;
+
     private InfiniteInvoClientEvents() {
     }
 
     @SubscribeEvent
     public static void onScreenOpening(ScreenEvent.Opening event) {
-        ContainerInventoryPagingController.opening(event.getNewScreen());
         if (event.getNewScreen() instanceof InventoryScreen
                 && Minecraft.getInstance().player != null
                 && !Minecraft.getInstance().player.getAbilities().instabuild) {
-            PacketDistributor.sendToServer(OpenInfiniteInventoryPayload.INSTANCE);
+            openInfiniteInventoryNextTick = true;
             event.setCanceled(true);
         }
     }
@@ -73,12 +74,21 @@ public final class InfiniteInvoClientEvents {
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
+        if (openInfiniteInventoryNextTick) {
+            openInfiniteInventoryNextTick = false;
+            if (Minecraft.getInstance().player != null
+                    && !Minecraft.getInstance().player.getAbilities().instabuild
+                    && !(Minecraft.getInstance().screen instanceof ScrollableInventoryScreen)) {
+                PacketDistributor.sendToServer(OpenInfiniteInventoryPayload.INSTANCE);
+            }
+        }
         CreativeInventoryController.tick();
         ContainerInventoryPagingController.tick();
     }
 
     @SubscribeEvent
     public static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+        openInfiniteInventoryNextTick = false;
         InfiniteInventoryData.clearClientCache();
     }
 }

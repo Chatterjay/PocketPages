@@ -251,9 +251,9 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
         } else if (index >= CRAFTING_START && index < GRID_START) {
             if (!moveItemStackTo(stack, GRID_START, hotbarEnd, false)) return ItemStack.EMPTY;
         } else if (index >= GRID_START && index < gridEnd) {
-            if (!moveItemStackTo(stack, HOTBAR_START, hotbarEnd, false)) return ItemStack.EMPTY;
+            if (!moveToEquipmentOrInventory(player, stack, HOTBAR_START, hotbarEnd)) return ItemStack.EMPTY;
         } else if (index >= HOTBAR_START && index < hotbarEnd) {
-            if (!moveItemStackTo(stack, GRID_START, gridEnd, false)) return ItemStack.EMPTY;
+            if (!moveToEquipmentOrInventory(player, stack, GRID_START, gridEnd)) return ItemStack.EMPTY;
         } else if (!moveItemStackTo(stack, GRID_START, hotbarEnd, false)) {
             return ItemStack.EMPTY;
         }
@@ -270,6 +270,24 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
 
         slot.onTake(player, stack);
         return copy;
+    }
+
+    private boolean moveToEquipmentOrInventory(Player player, ItemStack stack, int inventoryStart, int inventoryEnd) {
+        EquipmentSlot equipmentSlot = player.getEquipmentSlotForItem(stack);
+        if (equipmentSlot.getType() == EquipmentSlot.Type.HUMANOID_ARMOR) {
+            int armorSlot = ARMOR_START + (3 - equipmentSlot.getIndex());
+            if (!slots.get(armorSlot).hasItem()
+                    && moveItemStackTo(stack, armorSlot, armorSlot + 1, false)) {
+                return true;
+            }
+        } else if (equipmentSlot == EquipmentSlot.OFFHAND) {
+            int offhandSlot = HOTBAR_START + 9;
+            if (!slots.get(offhandSlot).hasItem()
+                    && moveItemStackTo(stack, offhandSlot, offhandSlot + 1, false)) {
+                return true;
+            }
+        }
+        return moveItemStackTo(stack, inventoryStart, inventoryEnd, false);
     }
 
     @Override

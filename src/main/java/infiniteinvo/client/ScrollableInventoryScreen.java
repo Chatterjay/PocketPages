@@ -3,6 +3,7 @@ package infiniteinvo.client;
 import infiniteinvo.Config;
 import infiniteinvo.DebugLog;
 import infiniteinvo.InfiniteInvo;
+import infiniteinvo.integration.client.CuriosClientCompat;
 import infiniteinvo.inventory.InfiniteInventoryData;
 import infiniteinvo.inventory.ScrollableInventoryLayout;
 import infiniteinvo.inventory.ScrollableInventoryMenu;
@@ -22,13 +23,18 @@ import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.fml.ModList;
 import java.util.List;
 
 public final class ScrollableInventoryScreen extends AbstractContainerScreen<ScrollableInventoryMenu> implements RecipeUpdateListener {
     private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(InfiniteInvo.MODID, "textures/gui/adjustable_gui.png");
+    // Matches vanilla's 379-pixel cutoff while accounting for the wider custom inventory.
+    private static final int RECIPE_BOOK_MIN_SCREEN_WIDTH = ScrollableInventoryLayout.IMAGE_WIDTH * 2 + 27;
+    private static final int RECIPE_BOOK_ADJACENT_GUI_OFFSET = 22;
     private final RecipeBookComponent recipeBookComponent = new RecipeBookComponent();
     private Button unlockButton;
     private ImageButton recipeBookButton;
+    private ImageButton curiosButton;
     private float xMouse;
     private float yMouse;
     private boolean widthTooNarrow;
@@ -50,7 +56,7 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
     @Override
     protected void init() {
         super.init();
-        widthTooNarrow = width < 379;
+        widthTooNarrow = width < RECIPE_BOOK_MIN_SCREEN_WIDTH;
         recipeBookComponent.init(width, height, minecraft, widthTooNarrow, menu);
         updateRecipeBookPosition();
         recipeBookButton = addRenderableWidget(new ImageButton(
@@ -64,6 +70,10 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
             recipeBookButtonClicked = true;
         }));
         addWidget(recipeBookComponent);
+        if (ModList.get().isLoaded("curios") && CuriosClientCompat.isButtonEnabled()) {
+            curiosButton = CuriosClientCompat.createButton(this);
+            addRenderableWidget(curiosButton);
+        }
 
         IpnCompat.migrateNativeStorageLocks();
         if (minecraft != null && minecraft.player != null
@@ -101,7 +111,7 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
         } else {
             super.render(guiGraphics, mouseX, mouseY, partialTick);
             recipeBookComponent.render(guiGraphics, mouseX, mouseY, partialTick);
-            recipeBookComponent.renderGhostRecipe(guiGraphics, leftPos, topPos, false, partialTick);
+            recipeBookComponent.renderGhostRecipe(guiGraphics, leftPos, topPos, true, partialTick);
         }
         renderTooltip(guiGraphics, mouseX, mouseY);
         recipeBookComponent.renderTooltip(guiGraphics, leftPos, topPos, mouseX, mouseY);
@@ -238,7 +248,7 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
                     guiGraphics.blit(TEXTURE,
                             ScrollableInventoryLayout.GRID_BACKGROUND_X + col * ScrollableInventoryLayout.SLOT_SIZE + 1,
                             ScrollableInventoryLayout.GRID_BACKGROUND_Y + row * ScrollableInventoryLayout.SLOT_SIZE + 1,
-                            19, 167, 16, 16);
+                            1, 167, 16, 16);
                 }
             }
         }
@@ -489,7 +499,9 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
     }
 
     private void updateRecipeBookPosition() {
-        leftPos = recipeBookComponent.updateScreenPosition(width, imageWidth);
+        leftPos = recipeBookComponent.isVisible() && !widthTooNarrow
+                ? (width - RECIPE_BOOK_ADJACENT_GUI_OFFSET) / 2
+                : recipeBookComponent.updateScreenPosition(width, imageWidth);
         topPos = (height - imageHeight) / 2;
         if (recipeBookButton != null) {
             recipeBookButton.setPosition(leftPos + ScrollableInventoryLayout.RECIPE_BOOK_BUTTON_X,
@@ -498,6 +510,9 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
         if (unlockButton != null) {
             unlockButton.setPosition(leftPos + ScrollableInventoryLayout.UNLOCK_BUTTON_X,
                     topPos + ScrollableInventoryLayout.UNLOCK_BUTTON_Y);
+        }
+        if (curiosButton != null) {
+            CuriosClientCompat.updatePosition(this, curiosButton);
         }
     }
 

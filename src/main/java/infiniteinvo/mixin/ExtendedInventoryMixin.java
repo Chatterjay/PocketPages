@@ -16,9 +16,12 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(Inventory.class)
 abstract class ExtendedInventoryMixin implements infiniteinvo.inventory.ExtendedInventoryAccess {
+    private static final int VANILLA_MAIN_INVENTORY_SIZE = 36;
+
     @Shadow @Final @Mutable public NonNullList<ItemStack> items;
     @Shadow @Final public NonNullList<ItemStack> armor;
     @Shadow @Final public NonNullList<ItemStack> offhand;
@@ -38,6 +41,12 @@ abstract class ExtendedInventoryMixin implements infiniteinvo.inventory.Extended
     @Inject(method = "load", at = @At("HEAD"))
     private void infiniteinvo$beginVanillaLoad(ListTag list, CallbackInfo callback) {
         ExtendedInventory.beginLoading(((Inventory) (Object) this).player);
+    }
+
+    /** Keeps vanilla's 100/150 equipment ids out of the expanded main-item list. */
+    @Redirect(method = "load", at = @At(value = "INVOKE", target = "Lnet/minecraft/core/NonNullList;size()I"))
+    private int infiniteinvo$limitLoadedMainSlots(NonNullList<ItemStack> list) {
+        return list == this.items ? VANILLA_MAIN_INVENTORY_SIZE : list.size();
     }
 
     @Inject(method = "load", at = @At("RETURN"))
@@ -97,7 +106,7 @@ abstract class ExtendedInventoryMixin implements infiniteinvo.inventory.Extended
     @Inject(method = "save", at = @At("HEAD"), cancellable = true)
     private void infiniteinvo$saveVanillaSlotsOnly(ListTag list, CallbackInfoReturnable<ListTag> callback) {
         Inventory inventory = (Inventory) (Object) this;
-        for (int slot = 0; slot < Math.min(36, items.size()); slot++) {
+        for (int slot = 0; slot < Math.min(VANILLA_MAIN_INVENTORY_SIZE, items.size()); slot++) {
             saveStack(list, items.get(slot), slot);
         }
         for (int slot = 0; slot < inventory.armor.size(); slot++) {

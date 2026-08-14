@@ -78,9 +78,13 @@ public final class ExtendedInventoryContainer implements Container {
 
     @Override
     public boolean canPlaceItem(int slot, ItemStack stack) {
-        return slot >= 0 && slot < InfiniteInventoryData.getUnlocked(inventory.player)
+        return isUnlocked(slot)
                 && !stack.is(InfiniteInvo.LOCKED_SLOT.asItem())
                 && InfiniteInventoryData.canInsertIntoVirtualSlot(stack);
+    }
+
+    public boolean isUnlocked(int slot) {
+        return slot >= 0 && slot < InfiniteInventoryData.getUnlocked(inventory.player);
     }
 
     @Override
