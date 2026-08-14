@@ -368,8 +368,10 @@ public final class ContainerInventoryPagingController {
                                         Grid grid, int unlockedSlots) {
         for (Slot slot : grid.slots) {
             int virtualSlot = CreativeInventoryPaging.getPagedStorageSlot(screen.getMenu(), slot);
-            if (virtualSlot >= unlockedSlots) {
+            if (virtualSlot >= Config.totalExtraSlots()) {
                 graphics.blit(INVENTORY_TEXTURE, slot.x, slot.y, 1, 167, 16, 16);
+            } else if (virtualSlot >= unlockedSlots) {
+                graphics.blit(INVENTORY_TEXTURE, slot.x, slot.y, 19, 167, 16, 16);
             }
         }
     }

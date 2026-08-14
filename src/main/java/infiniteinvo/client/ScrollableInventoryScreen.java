@@ -248,7 +248,7 @@ public final class ScrollableInventoryScreen extends AbstractContainerScreen<Scr
                     guiGraphics.blit(TEXTURE,
                             ScrollableInventoryLayout.GRID_BACKGROUND_X + col * ScrollableInventoryLayout.SLOT_SIZE + 1,
                             ScrollableInventoryLayout.GRID_BACKGROUND_Y + row * ScrollableInventoryLayout.SLOT_SIZE + 1,
-                            1, 167, 16, 16);
+                            19, 167, 16, 16);
                 }
             }
         }
