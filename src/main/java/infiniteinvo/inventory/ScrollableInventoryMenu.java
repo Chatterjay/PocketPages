@@ -3,6 +3,7 @@ package infiniteinvo.inventory;
 import infiniteinvo.Config;
 import infiniteinvo.InfiniteInvo;
 import infiniteinvo.DebugLog;
+import infiniteinvo.mixin.AbstractContainerMenuAccess;
 import org.anti_ad.mc.ipn.api.IPNSlotsIgnoreForInventoryTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
@@ -14,11 +15,10 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.StackedContents;
-import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.CraftingContainer;
-import net.minecraft.world.inventory.RecipeBookMenu;
+import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.RecipeBookType;
 import net.minecraft.world.inventory.ResultContainer;
 import net.minecraft.world.inventory.ResultSlot;
@@ -34,7 +34,12 @@ import java.util.List;
 import java.util.Optional;
 
 @IPNSlotsIgnoreForInventoryTypes(value = {}, ignoreCraftingSlots = true)
-public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput, CraftingRecipe> {
+/**
+ * A paged player inventory that deliberately remains an InventoryMenu.  Mods
+ * that only know vanilla's player menu can therefore keep their normal player
+ * inventory path while InfiniteInvo supplies the visible extended slots.
+ */
+public final class ScrollableInventoryMenu extends InventoryMenu {
     public static final int COLUMNS = ScrollableInventoryLayout.COLUMNS;
     public static final int VISIBLE_ROWS = ScrollableInventoryLayout.VISIBLE_ROWS;
     public static final int VISIBLE_GRID_SLOTS = COLUMNS * VISIBLE_ROWS;
@@ -46,8 +51,8 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
 
     private final Inventory playerInventory;
     private final ScrollableInventoryStore store;
-    private final ResultContainer resultSlots = new ResultContainer();
-    private final CraftingContainer craftSlots = new TransientCraftingContainer(this, 2, 2);
+    private final ResultContainer resultSlots;
+    private final CraftingContainer craftSlots;
     private final ContainerData data;
     private final DataSlot scrollData;
     private final ScrollSlot[] gridSlots = new ScrollSlot[VISIBLE_GRID_SLOTS];
@@ -60,7 +65,11 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
     }
 
     public ScrollableInventoryMenu(int containerId, Inventory playerInventory, ScrollableInventoryStore store, ContainerData data) {
-        super(InfiniteInvo.INFINITE_INVENTORY_MENU.get(), containerId);
+        super(playerInventory, true, playerInventory.player);
+        this.resultSlots = (ResultContainer) this.slots.get(RESULT_SLOT).container;
+        this.craftSlots = getCraftSlots();
+        replaceVanillaMenuIdentity(containerId);
+        clearVanillaSlots();
         this.playerInventory = playerInventory;
         this.store = store;
         this.data = data;
@@ -75,6 +84,19 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
         addDataSlots(data);
         addDataSlot(scrollData);
         updateScroll(0);
+    }
+
+    private void replaceVanillaMenuIdentity(int containerId) {
+        AbstractContainerMenuAccess access = (AbstractContainerMenuAccess) (Object) this;
+        access.infiniteinvo$setMenuType(InfiniteInvo.INFINITE_INVENTORY_MENU.get());
+        access.infiniteinvo$setContainerId(containerId);
+    }
+
+    private void clearVanillaSlots() {
+        this.slots.clear();
+        AbstractContainerMenuAccess access = (AbstractContainerMenuAccess) (Object) this;
+        access.infiniteinvo$getLastSlots().clear();
+        access.infiniteinvo$getRemoteSlots().clear();
     }
 
     public static void open(Player player) {
@@ -291,11 +313,6 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
     }
 
     @Override
-    public void clicked(int slotId, int button, ClickType clickType, Player player) {
-        super.clicked(slotId, button, clickType, player);
-    }
-
-    @Override
     public boolean stillValid(Player player) {
         return true;
     }
@@ -399,13 +416,6 @@ public final class ScrollableInventoryMenu extends RecipeBookMenu<CraftingInput,
         if (!stack.isEmpty()) {
             player.drop(stack, false);
         }
-    }
-
-    public void syncFromPlayer(Player player) {
-        store.syncFromPlayer(player);
-        data.set(0, InfiniteInventoryData.getUnlocked(player));
-        data.set(1, InfiniteInventoryData.nextUnlockCost(player));
-        updateScroll(0);
     }
 
     @Override

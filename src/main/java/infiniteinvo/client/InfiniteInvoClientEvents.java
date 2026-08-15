@@ -24,6 +24,7 @@ public final class InfiniteInvoClientEvents {
     @SubscribeEvent
     public static void onScreenOpening(ScreenEvent.Opening event) {
         if (event.getNewScreen() instanceof InventoryScreen
+                && !(event.getNewScreen() instanceof ScrollableInventoryScreen)
                 && Minecraft.getInstance().player != null
                 && !Minecraft.getInstance().player.getAbilities().instabuild) {
             openInfiniteInventoryNextTick = true;

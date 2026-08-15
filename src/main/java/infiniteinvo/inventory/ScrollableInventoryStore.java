@@ -1,28 +1,17 @@
 package infiniteinvo.inventory;
 
 import infiniteinvo.Config;
-import net.minecraft.world.Container;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 
 /** Menu view over the player's real extended Inventory.items slots. */
-public final class ScrollableInventoryStore implements Container {
-    private final Player owner;
-    private final Inventory inventory;
+public final class ScrollableInventoryStore extends PlayerExtraInventoryContainer {
 
     private ScrollableInventoryStore(Player owner) {
-        this.owner = owner;
-        this.inventory = owner.getInventory();
-        ExtendedInventory.ensure(inventory);
+        super(owner);
     }
 
     static ScrollableInventoryStore load(Player player) {
         return new ScrollableInventoryStore(player);
-    }
-
-    void syncFromPlayer(Player player) {
-        ExtendedInventory.ensure(inventory);
     }
 
     @Override
@@ -30,67 +19,4 @@ public final class ScrollableInventoryStore implements Container {
         return Config.totalExtraSlots();
     }
 
-    @Override
-    public boolean isEmpty() {
-        for (int slot = 0; slot < getContainerSize(); slot++) {
-            if (!getItem(slot).isEmpty()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @Override
-    public ItemStack getItem(int slot) {
-        int inventorySlot = slot + 9;
-        return slot >= 0 && slot < getContainerSize() && inventorySlot < inventory.items.size()
-                ? inventory.items.get(inventorySlot)
-                : ItemStack.EMPTY;
-    }
-
-    @Override
-    public ItemStack removeItem(int slot, int amount) {
-        if (slot < 0 || slot >= getContainerSize() || amount <= 0) {
-            return ItemStack.EMPTY;
-        }
-        ItemStack removed = net.minecraft.world.ContainerHelper.removeItem(inventory.items, slot + 9, amount);
-        if (!removed.isEmpty()) {
-            setChanged();
-        }
-        return removed;
-    }
-
-    @Override
-    public ItemStack removeItemNoUpdate(int slot) {
-        if (slot < 0 || slot >= getContainerSize()) {
-            return ItemStack.EMPTY;
-        }
-        ItemStack removed = inventory.items.set(slot + 9, ItemStack.EMPTY);
-        setChanged();
-        return removed;
-    }
-
-    @Override
-    public void setItem(int slot, ItemStack stack) {
-        if (slot >= 0 && slot < getContainerSize()) {
-            inventory.items.set(slot + 9, stack);
-        }
-    }
-
-    @Override
-    public void setChanged() {
-        inventory.setChanged();
-    }
-
-    @Override
-    public boolean stillValid(Player player) {
-        return player == owner;
-    }
-
-    @Override
-    public void clearContent() {
-        for (int slot = 0; slot < getContainerSize(); slot++) {
-            inventory.items.set(slot + 9, ItemStack.EMPTY);
-        }
-    }
 }

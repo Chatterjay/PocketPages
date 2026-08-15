@@ -123,6 +123,14 @@ dependencies {
     // InfiniteInvo's unified player item-handler capability.
     compileOnly files("run/mods/curios-neoforge-9.5.1+1.21.1.jar")
 
+    // Optional client-side inventory entry integrations. These jars are not
+    // bundled or published as dependencies of InfiniteInvo.
+    compileOnly files("run/mods/API/accessories-neoforge-1.1.0-beta.53+1.21.1.jar")
+    compileOnly files("run/mods/API/owo-lib-neoforge-0.12.15.5-beta.1+1.21.jar")
+    compileOnly files("run/mods/API/aether-1.21.1-1.5.10-neoforge.jar")
+    compileOnly files("run/mods/API/ApothicAttributes-1.21.1-2.10.1.jar")
+    compileOnly files("run/mods/API/Placebo-1.21.1-9.9.2.jar")
+
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
     // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"

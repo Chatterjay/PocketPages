@@ -20,7 +20,13 @@ public final class InfiniteInvoClient {
     }
 
     @SubscribeEvent
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public static void onRegisterScreens(RegisterMenuScreensEvent event) {
-        event.register(InfiniteInvo.INFINITE_INVENTORY_MENU.get(), ScrollableInventoryScreen::new);
+        net.minecraft.world.inventory.MenuType<? extends net.minecraft.world.inventory.InventoryMenu> menuType =
+                (net.minecraft.world.inventory.MenuType) InfiniteInvo.INFINITE_INVENTORY_MENU.get();
+        MenuScreens.ScreenConstructor<net.minecraft.world.inventory.InventoryMenu, ScrollableInventoryScreen> screen =
+                (menu, inventory, title) -> new ScrollableInventoryScreen(
+                        (infiniteinvo.inventory.ScrollableInventoryMenu) menu, inventory, title);
+        event.register(menuType, screen);
     }
 }

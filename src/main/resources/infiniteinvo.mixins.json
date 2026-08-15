@@ -3,6 +3,7 @@
   "package": "infiniteinvo.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "AbstractContainerMenuAccess",
     "MutableSlotMixin",
     "ExtendedInventoryMixin",
     "SelectedItemDropMixin",
@@ -14,6 +15,7 @@
   ],
   "client": [
     "client.AbstractContainerScreenAccessor",
+    "client.AbstractContainerScreenMenuAccessor",
     "client.CreativeSlotWrapperMixin",
     "client.CreativeHotbarDropMixin",
     "client.ClientMappedPlayerSlotLockMixin",
@@ -21,7 +23,8 @@
     "client.ClientInventoryDropQueueMixin",
     "client.CuriosRecipeBookLayoutMixin",
     "client.IpnAreaTypesMixin",
-    "client.IpnLockSlotsHandlerMixin"
+    "client.IpnLockSlotsHandlerMixin",
+    "client.IpnSortingButtonPositionMixin"
   ],
   "injectors": {
     "defaultRequire": 1

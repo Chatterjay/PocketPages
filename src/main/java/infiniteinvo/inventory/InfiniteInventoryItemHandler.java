@@ -10,22 +10,9 @@ public final class InfiniteInventoryItemHandler {
     private InfiniteInventoryItemHandler() {
     }
 
-    public static int getSlots(Inventory inventory) {
-        ExtendedInventory.ensure(inventory);
-        return inventory.items.size();
-    }
-
     public static boolean isOverflowSlot(Inventory inventory, int slot) {
         ExtendedInventory.ensure(inventory);
         return slot >= FIRST_EXTRA_INVENTORY_SLOT && slot < inventory.items.size();
-    }
-
-    public static boolean isExposedOverflowSlot(Inventory inventory, int slot) {
-        return isOverflowSlot(inventory, slot);
-    }
-
-    public static boolean isHiddenOverflowSlot(Inventory inventory, int slot) {
-        return false;
     }
 
     public static int getVirtualSlots(Inventory inventory) {

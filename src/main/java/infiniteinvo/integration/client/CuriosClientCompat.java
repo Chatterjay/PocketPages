@@ -26,18 +26,24 @@ public final class CuriosClientCompat {
         return CuriosClientConfig.CLIENT.enableButton.get();
     }
 
-    public static ImageButton createButton(ScrollableInventoryScreen screen) {
-        ImageButton button = new ImageButton(0, 0, BUTTON_SIZE, BUTTON_SIZE, CuriosButton.BIG,
-                ignored -> openInventory(screen));
+    public static CuriosEntryButton createButton(ScrollableInventoryScreen screen) {
+        CuriosEntryButton button = new CuriosEntryButton(screen);
         button.setTooltip(Tooltip.create(OPEN_CURIOS));
-        updatePosition(screen, button);
+        button.updatePosition(screen);
         return button;
     }
 
-    public static void updatePosition(ScrollableInventoryScreen screen, ImageButton button) {
-        Tuple<Integer, Integer> offset = CuriosScreen.getButtonOffset(false);
-        button.setPosition(screen.getGuiLeft() + offset.getA() + 2,
-                screen.getGuiTop() + offset.getB() + INVENTORY_BUTTON_Y);
+    public static final class CuriosEntryButton extends ImageButton {
+        private CuriosEntryButton(ScrollableInventoryScreen screen) {
+            super(0, 0, BUTTON_SIZE, BUTTON_SIZE, CuriosButton.BIG,
+                ignored -> openInventory(screen));
+        }
+
+        public void updatePosition(ScrollableInventoryScreen screen) {
+            Tuple<Integer, Integer> offset = CuriosScreen.getButtonOffset(false);
+            setPosition(screen.getGuiLeft() + offset.getA() + 2,
+                    screen.getGuiTop() + offset.getB() + INVENTORY_BUTTON_Y);
+        }
     }
 
     private static void openInventory(ScrollableInventoryScreen screen) {
