@@ -1,5 +1,7 @@
 package infiniteinvo.inventory;
 
+import net.minecraft.client.gui.screens.recipebook.RecipeBookComponent;
+
 /**
  * Pixel coordinates from the original 1.8.9 InfiniteInvo screen.  Keeping all
  * geometry here prevents the menu hit boxes and the tiled background drifting
@@ -23,6 +25,10 @@ public final class ScrollableInventoryLayout {
     public static final int RESULT_Y = 54;
     public static final int OFFHAND_X = 81;
     public static final int OFFHAND_Y = 62;
+    public static final int PLAYER_RENDER_LEFT_X = 26;
+    public static final int PLAYER_RENDER_TOP_Y = 8;
+    public static final int PLAYER_RENDER_RIGHT_X = 75;
+    public static final int PLAYER_RENDER_BOTTOM_Y = 78;
     public static final int GRID_X = 8;
     public static final int GRID_Y = 84;
     public static final int GRID_BACKGROUND_X = GRID_X - 1;
@@ -46,13 +52,46 @@ public final class ScrollableInventoryLayout {
     public static final int HOVER_SPRITE_SIZE = 16;
     public static final int CRAFTING_LABEL_X = 102;
     public static final int CRAFTING_LABEL_Y = 32;
-    public static final int RECIPE_BOOK_BUTTON_X = 82;
-    public static final int RECIPE_BOOK_BUTTON_Y = 42;
-    public static final int RECIPE_BOOK_BUTTON_WIDTH = 16;
-    public static final int RECIPE_BOOK_BUTTON_HEIGHT = 16;
+    public static final int RECIPE_BOOK_BUTTON_WIDTH = SLOT_SIZE;
+    public static final int RECIPE_BOOK_BUTTON_HEIGHT = SLOT_SIZE;
     public static final int UNLOCK_BUTTON_X = 87;
     public static final int UNLOCK_BUTTON_Y = 7;
 
     private ScrollableInventoryLayout() {
+    }
+
+    /**
+     * Keeps the recipe-book toggle in the gap between the player preview and
+     * crafting grid. Both anchors move with the actual inventory window.
+     */
+    public static int recipeBookButtonX(int guiLeft) {
+        int afterPlayerPreview = guiLeft + PLAYER_RENDER_RIGHT_X + 5;
+        int afterOffhandStart = guiLeft + OFFHAND_X - 1;
+        return Math.max(afterPlayerPreview, afterOffhandStart);
+    }
+
+    public static int recipeBookButtonY(int guiTop) {
+        int playerCenterY = guiTop + (PLAYER_RENDER_TOP_Y + PLAYER_RENDER_BOTTOM_Y) / 2;
+        return playerCenterY - 1;
+    }
+
+    public static boolean isRecipeBookNarrow(int screenWidth) {
+        return screenWidth < IMAGE_WIDTH + RecipeBookComponent.IMAGE_WIDTH + 2;
+    }
+
+    public static int recipeBookLeft(int screenWidth) {
+        return (screenWidth - IMAGE_WIDTH - RecipeBookComponent.IMAGE_WIDTH - 2) / 2;
+    }
+
+    public static int inventoryLeftWithRecipeBook(int screenWidth) {
+        return recipeBookLeft(screenWidth) + RecipeBookComponent.IMAGE_WIDTH + 2;
+    }
+
+    /**
+     * RecipeBookComponent uses a virtual viewport with a fixed side offset.
+     * This width aligns its left edge with the expanded inventory window.
+     */
+    public static int recipeBookViewportWidth(int screenWidth) {
+        return 2 * (recipeBookLeft(screenWidth) + 86) + RecipeBookComponent.IMAGE_WIDTH;
     }
 }

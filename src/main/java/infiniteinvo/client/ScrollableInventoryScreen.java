@@ -10,6 +10,7 @@ import infiniteinvo.mixin.client.AbstractContainerScreenMenuAccessor;
 import infiniteinvo.network.ScrollableInventoryPageRequestPayload;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.ImageButton;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
@@ -29,6 +30,7 @@ public final class ScrollableInventoryScreen extends InventoryScreen {
     private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(InfiniteInvo.MODID, "textures/gui/adjustable_gui.png");
     private final ScrollableInventoryMenu menu;
     private Button unlockButton;
+    private ImageButton recipeBookButton;
     private float xMouse;
     private float yMouse;
     private boolean draggingScrollbar;
@@ -50,6 +52,11 @@ public final class ScrollableInventoryScreen extends InventoryScreen {
     @Override
     protected void init() {
         super.init();
+        recipeBookButton = children().stream()
+                .filter(ImageButton.class::isInstance)
+                .map(ImageButton.class::cast)
+                .findFirst()
+                .orElse(null);
         IpnCompat.migrateNativeStorageLocks();
         if (minecraft != null && minecraft.player != null
                 && (minecraft.player.getAbilities().instabuild || !Config.requiresExperienceToUnlock())) {
@@ -67,6 +74,9 @@ public final class ScrollableInventoryScreen extends InventoryScreen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        // Optional inventory panels may update the vanilla anchor during input.
+        // Restore our wider layout before vanilla renders its slots and recipe book.
+        refreshCompatibilityLayout();
         xMouse = mouseX;
         yMouse = mouseY;
         if (unlockButton != null && minecraft != null && minecraft.player != null) {
@@ -126,7 +136,12 @@ public final class ScrollableInventoryScreen extends InventoryScreen {
         g.blit(TEXTURE, scrollbarX, hotbarBackgroundY, 187 + scrollbarWidth, 137, 16 - scrollbarWidth, 29);
 
         if (minecraft != null && minecraft.player != null) {
-            InventoryScreen.renderEntityInInventoryFollowsMouse(g, left + 26, top + 8, left + 75, top + 78, 30, 0.0625F, xMouse, yMouse, minecraft.player);
+            InventoryScreen.renderEntityInInventoryFollowsMouse(g,
+                    left + ScrollableInventoryLayout.PLAYER_RENDER_LEFT_X,
+                    top + ScrollableInventoryLayout.PLAYER_RENDER_TOP_Y,
+                    left + ScrollableInventoryLayout.PLAYER_RENDER_RIGHT_X,
+                    top + ScrollableInventoryLayout.PLAYER_RENDER_BOTTOM_Y,
+                    30, 0.0625F, xMouse, yMouse, minecraft.player);
         }
 
     }
@@ -289,7 +304,11 @@ public final class ScrollableInventoryScreen extends InventoryScreen {
         if (isInfiniteInvoLockedVirtualSlot(virtualSlotAt(mouseX, mouseY))) {
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        boolean handled = super.mouseClicked(mouseX, mouseY, button);
+        // InventoryScreen's recipe-book callback writes the vanilla position
+        // after toggling. Reapply the extended position in the same input pass.
+        refreshCompatibilityLayout();
+        return handled;
     }
 
     @Override
@@ -328,8 +347,34 @@ public final class ScrollableInventoryScreen extends InventoryScreen {
         return addRenderableWidget(widget);
     }
 
-    /** The vanilla InventoryScreen now owns integration widget positioning. */
+    /** Restores the expanded inventory geometry after another mod changes it. */
     public void refreshCompatibilityLayout() {
+        refreshCompatibilityLayout(recipeBookButton);
+    }
+
+    /**
+     * Reapplies the layout after the vanilla recipe-book callback has moved its
+     * button. The callback supplies the authoritative button instance because
+     * optional integrations may add widgets during screen initialization.
+     */
+    public void refreshCompatibilityLayout(ImageButton callbackButton) {
+        if (minecraft == null || minecraft.gameMode == null || minecraft.gameMode.hasInfiniteItems()) {
+            return;
+        }
+        if (callbackButton != null) {
+            recipeBookButton = callbackButton;
+        }
+        if (getRecipeBookComponent().isVisible()
+                && !ScrollableInventoryLayout.isRecipeBookNarrow(width)) {
+            leftPos = ScrollableInventoryLayout.inventoryLeftWithRecipeBook(width);
+        } else {
+            leftPos = (width - imageWidth) / 2;
+        }
+        if (recipeBookButton != null) {
+            recipeBookButton.setPosition(
+                    ScrollableInventoryLayout.recipeBookButtonX(leftPos),
+                    ScrollableInventoryLayout.recipeBookButtonY(topPos));
+        }
     }
 
     private boolean isOverScrollbar(double mouseX, double mouseY) {

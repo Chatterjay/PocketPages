@@ -78,6 +78,7 @@ public final class ApothicAttributesClientCompat {
         public void toggleVisibility() {
             super.toggleVisibility();
             screen.refreshCompatibilityLayout();
+            updatePosition();
         }
 
         private ImageButton toggleButton() {
