@@ -42,3 +42,6 @@ repo/
 
 ### Local documentation ###
 INTEGRATION.md
+
+### Local diagnostics ###
+.tmp/

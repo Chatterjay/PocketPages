@@ -232,7 +232,7 @@ public final class ScrollableInventoryMenu extends InventoryMenu {
             for (int col = 0; col < COLUMNS; col++) {
                 int x = ScrollableInventoryLayout.GRID_X + col * ScrollableInventoryLayout.SLOT_SIZE;
                 int y = ScrollableInventoryLayout.GRID_Y + row * ScrollableInventoryLayout.SLOT_SIZE;
-                ScrollSlot slot = new ScrollSlot(this, store, 0, x, y);
+                ScrollSlot slot = new ScrollSlot(this, playerInventory, x, y);
                 gridSlots[row * COLUMNS + col] = slot;
                 addSlot(slot);
             }
@@ -245,6 +245,23 @@ public final class ScrollableInventoryMenu extends InventoryMenu {
                     ScrollableInventoryLayout.GRID_X + col * ScrollableInventoryLayout.SLOT_SIZE,
                     ScrollableInventoryLayout.HOTBAR_Y));
         }
+    }
+
+    /** Returns whether this menu slot belongs to the currently visible storage page. */
+    public boolean isVisibleStorageSlot(Slot slot) {
+        for (ScrollSlot gridSlot : gridSlots) {
+            if (gridSlot == slot) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Returns the stable InfiniteInvo storage index for a visible grid slot. */
+    public int getVisibleStorageSlot(Slot slot) {
+        return slot instanceof ScrollSlot scrollSlot && isVisibleStorageSlot(scrollSlot)
+                ? scrollSlot.getVirtualIndex()
+                : -1;
     }
 
     private void addOffhandSlot() {

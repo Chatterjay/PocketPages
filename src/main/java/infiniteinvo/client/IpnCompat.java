@@ -51,7 +51,7 @@ public final class IpnCompat {
         return Set.of();
     }
 
-    static boolean isVirtualSlotLocked(int virtualSlot) {
+    public static boolean isVirtualSlotLocked(int virtualSlot) {
         return isVirtualSlotLocked(lockedInventorySlots(), virtualSlot);
     }
 
@@ -76,7 +76,7 @@ public final class IpnCompat {
             var pointConstructor = samplePoint.getClass().getConstructor(int.class, int.class);
             Map<Object, Object> result = new LinkedHashMap<>(locations);
             for (Slot slot : screen.visibleVirtualSlots()) {
-                int virtualSlot = slot.getContainerSlot();
+                int virtualSlot = screen.storageSlot(slot);
                 if (virtualSlot < screen.unlockedSlots()) {
                     result.put(lockKey(virtualSlot), pointConstructor.newInstance(slot.x, slot.y));
                 }

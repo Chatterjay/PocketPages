@@ -3,6 +3,7 @@ package infiniteinvo.mixin.client;
 import dev.shadowsoffire.apothic_attributes.ALConfig;
 import dev.shadowsoffire.apothic_attributes.client.AttributesGui;
 import dev.shadowsoffire.apothic_attributes.client.ButtonPlacement;
+import infiniteinvo.client.PlayerScreenCompatibilityLayout;
 import infiniteinvo.client.ScrollableInventoryScreen;
 import net.minecraft.client.gui.components.ImageButton;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
@@ -28,8 +29,10 @@ abstract class ApothicAttributesRecipeBookLayoutMixin {
     private void infiniteinvo$restoreRecipeBookLayout(CallbackInfo callback) {
         if ((Object) parent instanceof ScrollableInventoryScreen screen) {
             screen.refreshCompatibilityLayout();
-            leftPos = parent.getGuiLeft() - AttributesGui.WIDTH;
-            topPos = parent.getGuiTop();
+            PlayerScreenCompatibilityLayout.PanelAnchor panel = PlayerScreenCompatibilityLayout.leftPanel(
+                    parent, AttributesGui.WIDTH);
+            leftPos = panel.left();
+            topPos = panel.top();
             ButtonPlacement.positionGuiButton(toggleBtn, ALConfig.attributesGuiButtonOffset,
                     parent.getGuiLeft(), parent.getGuiTop());
             hideUnchangedBtn.setPosition(leftPos + 7, topPos + 151);

@@ -28,6 +28,8 @@ public final class CreativeInventoryPaging {
     private static final Map<UUID, Integer> LAST_REQUESTS = new ConcurrentHashMap<>();
     private static final Map<AbstractContainerMenu, MenuMapping> MENU_MAPPINGS =
             Collections.synchronizedMap(new WeakHashMap<>());
+    private static final Map<Slot, Integer> MAPPED_STORAGE_SLOTS =
+            Collections.synchronizedMap(new WeakHashMap<>());
 
     private CreativeInventoryPaging() {
     }
@@ -124,8 +126,12 @@ public final class CreativeInventoryPaging {
 
     /** Returns the current extended-inventory index for a mapped slot or {@code -1}. */
     public static int getMappedStorageSlot(Slot slot) {
+        Integer mappedSlot = MAPPED_STORAGE_SLOTS.get(slot);
+        if (mappedSlot != null) {
+            return mappedSlot;
+        }
         Slot target = slot instanceof WrappedSlotAccess wrapped ? wrapped.infiniteinvo$getTargetSlot() : slot;
-        return target.container instanceof ExtendedInventoryContainer ? target.getContainerSlot() : -1;
+        return target == slot ? -1 : MAPPED_STORAGE_SLOTS.getOrDefault(target, -1);
     }
 
     public static void clearAll(ServerPlayer player) {
@@ -159,6 +165,10 @@ public final class CreativeInventoryPaging {
             MENU_MAPPINGS.put(menu, mapping);
         }
         mapping.map(row);
+        DebugLog.debug("[Paging] mapped menu player={} menu={} row={} storageRange={}..{} exposedRange={}..{}",
+                player.getName().getString(), menu.getClass().getSimpleName(), row,
+                row * 9, row * 9 + PAGE_SIZE - 1,
+                row * 9 + 9, row * 9 + 9 + PAGE_SIZE - 1);
     }
 
     private static void restorePlayerMenus(Player player) {
@@ -191,19 +201,22 @@ public final class CreativeInventoryPaging {
         return Math.max(0, (int) Math.ceil(slots / 9.0D) - 3);
     }
 
-    private record MappedSlot(Slot slot, Container originalContainer, int originalIndex, int offset,
-                              ExtendedInventoryContainer extendedContainer) {
-        void map(int row) {
+    private record MappedSlot(Slot slot, Container originalContainer, int originalIndex, int offset) {
+        void map(Inventory inventory, int row) {
             int virtualIndex = row * 9 + offset;
             MutableSlotAccess mutable = (MutableSlotAccess) slot;
-            mutable.infiniteinvo$setContainer(extendedContainer);
-            mutable.infiniteinvo$setContainerSlot(virtualIndex);
+            // Keep the remapped page indistinguishable from a normal player
+            // inventory to integrations that inspect Slot.container directly.
+            mutable.infiniteinvo$setContainer(inventory);
+            mutable.infiniteinvo$setContainerSlot(virtualIndex + 9);
+            MAPPED_STORAGE_SLOTS.put(slot, virtualIndex);
         }
 
         void restore() {
             MutableSlotAccess mutable = (MutableSlotAccess) slot;
             mutable.infiniteinvo$setContainer(originalContainer);
             mutable.infiniteinvo$setContainerSlot(originalIndex);
+            MAPPED_STORAGE_SLOTS.remove(slot);
         }
     }
 
@@ -222,12 +235,11 @@ public final class CreativeInventoryPaging {
         static MenuMapping create(Player player, AbstractContainerMenu menu) {
             Inventory inventory = player.getInventory();
             List<MappedSlot> slots = new ArrayList<>(PAGE_SIZE);
-            ExtendedInventoryContainer extendedContainer = new ExtendedInventoryContainer(inventory);
             for (Slot slot : menu.slots) {
                 Slot target = slot instanceof WrappedSlotAccess wrapped ? wrapped.infiniteinvo$getTargetSlot() : slot;
                 int index = target.getContainerSlot();
                 if (target.container == inventory && index >= 9 && index < 36) {
-                    slots.add(new MappedSlot(slot, inventory, index, index - 9, extendedContainer));
+                    slots.add(new MappedSlot(slot, inventory, index, index - 9));
                 }
             }
             return slots.size() == PAGE_SIZE
@@ -236,7 +248,7 @@ public final class CreativeInventoryPaging {
         }
 
         void map(int row) {
-            slots.forEach(slot -> slot.map(row));
+            slots.forEach(slot -> slot.map(inventory, row));
         }
 
         void restore() {
@@ -248,10 +260,7 @@ public final class CreativeInventoryPaging {
         }
 
         int storageSlot(Slot slot) {
-            if (!contains(slot)) {
-                return -1;
-            }
-            return getMappedStorageSlot(slot);
+            return contains(slot) ? getMappedStorageSlot(slot) : -1;
         }
     }
 }

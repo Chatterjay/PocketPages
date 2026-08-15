@@ -1,7 +1,5 @@
 package infiniteinvo.inventory;
 
-import net.minecraft.client.gui.screens.recipebook.RecipeBookComponent;
-
 /**
  * Pixel coordinates from the original 1.8.9 InfiniteInvo screen.  Keeping all
  * geometry here prevents the menu hit boxes and the tiled background drifting
@@ -60,38 +58,4 @@ public final class ScrollableInventoryLayout {
     private ScrollableInventoryLayout() {
     }
 
-    /**
-     * Keeps the recipe-book toggle in the gap between the player preview and
-     * crafting grid. Both anchors move with the actual inventory window.
-     */
-    public static int recipeBookButtonX(int guiLeft) {
-        int afterPlayerPreview = guiLeft + PLAYER_RENDER_RIGHT_X + 5;
-        int afterOffhandStart = guiLeft + OFFHAND_X - 1;
-        return Math.max(afterPlayerPreview, afterOffhandStart);
-    }
-
-    public static int recipeBookButtonY(int guiTop) {
-        int playerCenterY = guiTop + (PLAYER_RENDER_TOP_Y + PLAYER_RENDER_BOTTOM_Y) / 2;
-        return playerCenterY - 1;
-    }
-
-    public static boolean isRecipeBookNarrow(int screenWidth) {
-        return screenWidth < IMAGE_WIDTH + RecipeBookComponent.IMAGE_WIDTH + 2;
-    }
-
-    public static int recipeBookLeft(int screenWidth) {
-        return (screenWidth - IMAGE_WIDTH - RecipeBookComponent.IMAGE_WIDTH - 2) / 2;
-    }
-
-    public static int inventoryLeftWithRecipeBook(int screenWidth) {
-        return recipeBookLeft(screenWidth) + RecipeBookComponent.IMAGE_WIDTH + 2;
-    }
-
-    /**
-     * RecipeBookComponent uses a virtual viewport with a fixed side offset.
-     * This width aligns its left edge with the expanded inventory window.
-     */
-    public static int recipeBookViewportWidth(int screenWidth) {
-        return 2 * (recipeBookLeft(screenWidth) + 86) + RecipeBookComponent.IMAGE_WIDTH;
-    }
 }

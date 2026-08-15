@@ -1,11 +1,11 @@
 package infiniteinvo.mixin.client;
 
 import infiniteinvo.client.ScrollableInventoryScreen;
+import infiniteinvo.client.PlayerScreenCompatibilityLayout;
 import infiniteinvo.inventory.ScrollableInventoryLayout;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ImageButton;
-import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.gui.screens.recipebook.RecipeBookComponent;
 import net.minecraft.world.inventory.RecipeBookMenu;
@@ -39,10 +39,10 @@ abstract class ScrollableInventoryRecipeBookLayoutMixin {
             return;
         }
 
-        boolean narrow = ScrollableInventoryLayout.isRecipeBookNarrow(screenWidth);
-        widthTooNarrow = narrow;
-        int viewportWidth = narrow ? screenWidth : ScrollableInventoryLayout.recipeBookViewportWidth(screenWidth);
-        recipeBook.init(viewportWidth, screenHeight, minecraft, narrow, menu);
+        PlayerScreenCompatibilityLayout.RecipeBookLayout layout = PlayerScreenCompatibilityLayout.recipeBookLayout(
+                screenWidth, ScrollableInventoryLayout.IMAGE_WIDTH, recipeBook.isVisible());
+        widthTooNarrow = layout.narrow();
+        recipeBook.init(layout.viewportWidth(), screenHeight, minecraft, layout.narrow(), menu);
     }
 
     @Redirect(
@@ -78,10 +78,8 @@ abstract class ScrollableInventoryRecipeBookLayoutMixin {
             return recipeBook.updateScreenPosition(screenWidth, imageWidth);
         }
 
-        if (recipeBook.isVisible() && !ScrollableInventoryLayout.isRecipeBookNarrow(screenWidth)) {
-            return ScrollableInventoryLayout.inventoryLeftWithRecipeBook(screenWidth);
-        }
-        return (screenWidth - imageWidth) / 2;
+        return PlayerScreenCompatibilityLayout.recipeBookLayout(
+                screenWidth, imageWidth, recipeBook.isVisible()).inventoryLeft();
     }
 
     @ModifyArgs(
@@ -93,8 +91,8 @@ abstract class ScrollableInventoryRecipeBookLayoutMixin {
         if (!infiniteinvo$isExtendedInventory()) {
             return;
         }
-        args.set(0, ScrollableInventoryLayout.recipeBookButtonX(infiniteinvo$guiLeft()));
-        args.set(1, ScrollableInventoryLayout.recipeBookButtonY(infiniteinvo$guiTop()));
+        args.set(0, PlayerScreenCompatibilityLayout.recipeBookButtonX(infiniteinvo$guiLeft()));
+        args.set(1, PlayerScreenCompatibilityLayout.recipeBookButtonY(infiniteinvo$guiTop()));
         args.set(2, ScrollableInventoryLayout.RECIPE_BOOK_BUTTON_WIDTH);
         args.set(3, ScrollableInventoryLayout.RECIPE_BOOK_BUTTON_HEIGHT);
     }
@@ -109,8 +107,8 @@ abstract class ScrollableInventoryRecipeBookLayoutMixin {
         if (!infiniteinvo$isExtendedInventory()) {
             return;
         }
-        args.set(0, ScrollableInventoryLayout.recipeBookButtonX(infiniteinvo$guiLeft()));
-        args.set(1, ScrollableInventoryLayout.recipeBookButtonY(infiniteinvo$guiTop()));
+        args.set(0, PlayerScreenCompatibilityLayout.recipeBookButtonX(infiniteinvo$guiLeft()));
+        args.set(1, PlayerScreenCompatibilityLayout.recipeBookButtonY(infiniteinvo$guiTop()));
     }
 
     /**

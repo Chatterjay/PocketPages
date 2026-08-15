@@ -8,9 +8,11 @@ import infiniteinvo.inventory.ScrollableInventoryLayout;
 import infiniteinvo.inventory.ScrollableInventoryMenu;
 import infiniteinvo.mixin.client.AbstractContainerScreenMenuAccessor;
 import infiniteinvo.network.ScrollableInventoryPageRequestPayload;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ImageButton;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
@@ -82,17 +84,39 @@ public final class ScrollableInventoryScreen extends InventoryScreen {
         if (unlockButton != null && minecraft != null && minecraft.player != null) {
             unlockButton.setPosition(leftPos + ScrollableInventoryLayout.UNLOCK_BUTTON_X,
                     topPos + ScrollableInventoryLayout.UNLOCK_BUTTON_Y);
+            int unlockedSlots = menu.getUnlockedSlots();
+            int totalSlots = menu.getStore().getContainerSize();
             int cost = menu.getNextUnlockCost();
-            boolean canUnlock = menu.getUnlockedSlots() < menu.getStore().getContainerSize()
-                    && InfiniteInventoryData.canAffordNextUnlock(minecraft.player);
+            boolean hasLockedSlots = unlockedSlots < totalSlots;
+            boolean canUnlock = hasLockedSlots && InfiniteInventoryData.canAffordNextUnlock(minecraft.player);
             unlockButton.active = canUnlock;
             int available = Config.usesExperiencePoints() ? minecraft.player.totalExperience : minecraft.player.experienceLevel;
-            unlockButton.setMessage(canUnlock
-                    ? Component.translatable("infiniteinvo.unlockslot")
-                    : Component.literal(available + " / " + cost + " XP"));
+            unlockButton.setMessage(!hasLockedSlots
+                    ? Component.translatable("infiniteinvo.unlockslot.complete")
+                    : canUnlock
+                            ? Component.translatable("infiniteinvo.unlockslot")
+                            : Component.literal(available + " / " + cost));
+            updateUnlockButtonTooltip(unlockedSlots, totalSlots, cost, hasLockedSlots);
         }
 
         super.render(guiGraphics, mouseX, mouseY, partialTick);
+    }
+
+    private void updateUnlockButtonTooltip(int unlockedSlots, int totalSlots, int cost, boolean hasLockedSlots) {
+        var tooltip = Component.translatable(
+                "infiniteinvo.unlockslot.tooltip.unlocked", unlockedSlots, totalSlots)
+                .withStyle(ChatFormatting.GRAY);
+        tooltip.append(Component.literal("\n"));
+        if (!hasLockedSlots) {
+            tooltip.append(Component.translatable("infiniteinvo.unlockslot.tooltip.complete")
+                    .withStyle(ChatFormatting.GREEN));
+        } else {
+            String costKey = Config.usesExperiencePoints()
+                    ? "infiniteinvo.unlockslot.tooltip.cost.points"
+                    : "infiniteinvo.unlockslot.tooltip.cost.levels";
+            tooltip.append(Component.translatable(costKey, cost).withStyle(ChatFormatting.GOLD));
+        }
+        unlockButton.setTooltip(Tooltip.create(tooltip));
     }
 
     @Override
@@ -340,13 +364,6 @@ public final class ScrollableInventoryScreen extends InventoryScreen {
         super.slotClicked(slot, slotId, mouseButton, clickType);
     }
 
-    /** Kept for source compatibility with older optional integrations. */
-    public <T extends net.minecraft.client.gui.components.events.GuiEventListener
-            & net.minecraft.client.gui.components.Renderable
-            & net.minecraft.client.gui.narration.NarratableEntry> T addCompatibilityWidget(T widget) {
-        return addRenderableWidget(widget);
-    }
-
     /** Restores the expanded inventory geometry after another mod changes it. */
     public void refreshCompatibilityLayout() {
         refreshCompatibilityLayout(recipeBookButton);
@@ -364,16 +381,11 @@ public final class ScrollableInventoryScreen extends InventoryScreen {
         if (callbackButton != null) {
             recipeBookButton = callbackButton;
         }
-        if (getRecipeBookComponent().isVisible()
-                && !ScrollableInventoryLayout.isRecipeBookNarrow(width)) {
-            leftPos = ScrollableInventoryLayout.inventoryLeftWithRecipeBook(width);
-        } else {
-            leftPos = (width - imageWidth) / 2;
-        }
+        PlayerScreenCompatibilityLayout.RecipeBookLayout layout = PlayerScreenCompatibilityLayout.recipeBookLayout(
+                width, imageWidth, getRecipeBookComponent().isVisible());
+        leftPos = layout.inventoryLeft();
         if (recipeBookButton != null) {
-            recipeBookButton.setPosition(
-                    ScrollableInventoryLayout.recipeBookButtonX(leftPos),
-                    ScrollableInventoryLayout.recipeBookButtonY(topPos));
+            PlayerScreenCompatibilityLayout.positionRecipeBookButton(recipeBookButton, leftPos, topPos);
         }
     }
 
@@ -461,13 +473,17 @@ public final class ScrollableInventoryScreen extends InventoryScreen {
 
     public static boolean isIpnVirtualSlotLocked(Slot slot) {
         ScrollableInventoryScreen screen = current();
-        return screen != null && slot.container == screen.menu.getStore()
-                && slot.getContainerSlot() < screen.menu.getUnlockedSlots()
-                && IpnCompat.isVirtualSlotLocked(slot.getContainerSlot());
+        int storageSlot = screen == null ? -1 : screen.menu.getVisibleStorageSlot(slot);
+        return screen != null && storageSlot >= 0 && storageSlot < screen.menu.getUnlockedSlots()
+                && IpnCompat.isVirtualSlotLocked(storageSlot);
     }
 
     List<Slot> visibleVirtualSlots() {
-        return menu.slots.stream().filter(slot -> slot.container == menu.getStore()).toList();
+        return menu.slots.stream().filter(menu::isVisibleStorageSlot).toList();
+    }
+
+    int storageSlot(Slot slot) {
+        return menu.getVisibleStorageSlot(slot);
     }
 
     int unlockedSlots() {
