@@ -37,4 +37,12 @@ abstract class IpnAreaTypesMixin {
         }
     }
 
+    @Inject(method = "getLockedSlots", at = @At("RETURN"), cancellable = true, remap = false)
+    private void infiniteinvo$includeVirtualLockedSlots(CallbackInfoReturnable<AreaType> callback) {
+        AreaType original = callback.getReturnValue();
+        if (original != null) {
+            callback.setReturnValue(IpnAreaTypeCompat.wrapLockedSlots(original));
+        }
+    }
+
 }

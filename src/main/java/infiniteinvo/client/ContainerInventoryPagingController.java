@@ -144,7 +144,6 @@ public final class ContainerInventoryPagingController {
                 state.open = false;
                 if (state.pageLocksApplied) {
                     IpnCompat.captureMappedPageLocks(state.displayedRow);
-                    IpnCompat.applyMappedPageLocks(0);
                 }
                 if (!Config.REMEMBER_CONTAINER_PAGE.get()) {
                     lastContainerRow = 0;
@@ -211,7 +210,26 @@ public final class ContainerInventoryPagingController {
         state.nextRequestId = 0;
         state.pageLocksApplied = false;
         IpnCompat.migrateNativeStorageLocks();
+
+        // The visible vanilla rows already represent page zero. Mark them as
+        // mapped before the round trip so sorters can classify the hotbar on
+        // the first frame instead of only after the player scrolls once.
+        primeVisiblePageZero(screen);
+        IpnCompat.applyMappedPageLocks(0);
+        state.pageLocksApplied = true;
         request(state, Config.REMEMBER_CONTAINER_PAGE.get() ? lastContainerRow : 0, true);
+    }
+
+    private static void primeVisiblePageZero(AbstractContainerScreen<?> screen) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) {
+            return;
+        }
+
+        CreativeInventoryPaging.mapClientMenu(minecraft.player, minecraft.player.inventoryMenu, 0);
+        CreativeInventoryPaging.mapClientMenu(minecraft.player, screen.getMenu(), 0);
+        DebugLog.debug("[Paging][Client] primed container page-zero mapping screen={} menu={}",
+                screen.getClass().getSimpleName(), screen.getMenu().getClass().getSimpleName());
     }
 
     private static void request(State state, int row, boolean force) {

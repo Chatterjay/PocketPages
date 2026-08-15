@@ -66,6 +66,10 @@ public final class IpnAreaTypeCompat {
         return new InfiniteInvoPlayerStorageArea(original, areaTypes);
     }
 
+    public static AreaType wrapLockedSlots(AreaType original) {
+        return new InfiniteInvoLockedSlotsArea(original);
+    }
+
     private static boolean isSameSlotList(AbstractContainerMenu menu, List<Slot> slots) {
         if (menu == null || menu.slots.size() != slots.size()) {
             return false;
@@ -116,16 +120,24 @@ public final class IpnAreaTypeCompat {
 
             LinkedHashSet<Integer> combined = new LinkedHashSet<>(originalArea.getSlotIndices());
             int virtualSlots = 0;
+            boolean replacedVisibleStorage = false;
             for (var slot : view.visibleStorageSlots()) {
-                if (!slot.isSortable() || IpnCompat.isVirtualSlotLocked(slot.storageSlot())
-                        || slot.menuSlot() < 0 || slot.menuSlot() >= slots.size()) {
+                if (slot.menuSlot() < 0 || slot.menuSlot() >= slots.size()) {
+                    continue;
+                }
+
+                // The original IPN player region contains the same physical
+                // menu slots. Replace it wholesale so a stable virtual lock
+                // cannot be bypassed through that original region.
+                replacedVisibleStorage |= combined.remove(slot.menuSlot());
+                if (!slot.isSortable() || IpnCompat.isVirtualOrMappedSlotLocked(slot.storageSlot())) {
                     continue;
                 }
                 if (combined.add(slot.menuSlot())) {
                     virtualSlots++;
                 }
             }
-            if (virtualSlots == 0) {
+            if (virtualSlots == 0 && !replacedVisibleStorage) {
                 return originalArea;
             }
 
@@ -145,6 +157,53 @@ public final class IpnAreaTypeCompat {
                     .filter(index -> index >= 0 && index < slots.size())
                     .toList();
             return ItemArea.Companion.invoke(slots, slotIndices, false);
+        }
+
+        @Override
+        public AreaType plus(AreaType other) {
+            return new CombinedArea(this, other, false);
+        }
+
+        @Override
+        public AreaType minus(AreaType other) {
+            return new CombinedArea(this, other, true);
+        }
+    }
+
+    private record InfiniteInvoLockedSlotsArea(AreaType original) implements AreaType {
+        @Override
+        @SuppressWarnings("rawtypes")
+        public ItemArea getItemArea(AbstractContainerMenu menu, List slots) {
+            Minecraft minecraft = Minecraft.getInstance();
+            ItemArea originalArea = original.getItemArea(menu, slots);
+            if (minecraft.player == null) {
+                return originalArea;
+            }
+
+            var viewResult = InfiniteInvoSortingApi.findView(minecraft.player, menu);
+            if (viewResult.isEmpty()) {
+                return originalArea;
+            }
+
+            LinkedHashSet<Integer> combined = new LinkedHashSet<>(originalArea.getSlotIndices());
+            int virtualLocks = 0;
+            for (var slot : viewResult.get().visibleStorageSlots()) {
+                if (slot.menuSlot() < 0 || slot.menuSlot() >= slots.size()
+                        || !IpnCompat.isVirtualOrMappedSlotLocked(slot.storageSlot())) {
+                    continue;
+                }
+                if (combined.add(slot.menuSlot())) {
+                    virtualLocks++;
+                }
+            }
+            if (virtualLocks == 0) {
+                return originalArea;
+            }
+
+            DebugLog.debug("[IPN] locked area menu={} native={} virtual={} combined={}",
+                    menu.getClass().getSimpleName(), originalArea.getSlotIndices().size(),
+                    virtualLocks, combined.size());
+            return ItemArea.Companion.invoke(slots, new ArrayList<>(combined), false);
         }
 
         @Override

@@ -55,6 +55,16 @@ public final class IpnCompat {
         return isVirtualSlotLocked(lockedInventorySlots(), virtualSlot);
     }
 
+    /**
+     * Includes a lock toggled in a remapped container before that page is
+     * captured into InfiniteInvo's stable virtual lock key.
+     */
+    public static boolean isVirtualOrMappedSlotLocked(int virtualSlot) {
+        Set<Integer> lockedSlots = lockedInventorySlots();
+        return isVirtualSlotLocked(lockedSlots, virtualSlot)
+                || lockedSlots.contains(mappedSlotKey(virtualSlot));
+    }
+
     static boolean isVirtualSlotLocked(Set<Integer> lockedSlots, int virtualSlot) {
         return lockedSlots.contains(lockKey(virtualSlot));
     }
@@ -78,6 +88,10 @@ public final class IpnCompat {
             for (Slot slot : screen.visibleVirtualSlots()) {
                 int virtualSlot = screen.storageSlot(slot);
                 if (virtualSlot < screen.unlockedSlots()) {
+                    // Replace the vanilla inventory key for this coordinate.
+                    // Keeping both keys makes IPN toggle the native key first,
+                    // so a stable virtual lock needs a second click to clear.
+                    result.remove(mappedSlotKey(virtualSlot));
                     result.put(lockKey(virtualSlot), pointConstructor.newInstance(slot.x, slot.y));
                 }
             }
@@ -114,9 +128,8 @@ public final class IpnCompat {
 
         boolean changed = false;
         for (int index = 0; index < 27; index++) {
-            int nativeSlot = index + 9;
             int virtualSlot = row * 9 + index;
-            boolean locked = locks.remove(nativeSlot);
+            boolean locked = locks.remove(mappedSlotKey(virtualSlot));
             changed |= locked ? locks.add(lockKey(virtualSlot)) : locks.remove(lockKey(virtualSlot));
         }
         if (changed) {
@@ -133,11 +146,10 @@ public final class IpnCompat {
 
         boolean changed = false;
         for (int index = 0; index < 27; index++) {
-            int nativeSlot = index + 9;
             int virtualSlot = row * 9 + index;
             changed |= isVirtualSlotLocked(locks, virtualSlot)
-                    ? locks.add(nativeSlot)
-                    : locks.remove(nativeSlot);
+                    ? locks.add(mappedSlotKey(virtualSlot))
+                    : locks.remove(mappedSlotKey(virtualSlot));
         }
         if (changed) {
             saveLocks();
@@ -150,6 +162,10 @@ public final class IpnCompat {
 
     private static int lockKey(int virtualSlot) {
         return VIRTUAL_SLOT_BASE + virtualSlot;
+    }
+
+    private static int mappedSlotKey(int virtualSlot) {
+        return virtualSlot + 9;
     }
 
     @SuppressWarnings("unchecked")
