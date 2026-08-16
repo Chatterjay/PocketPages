@@ -187,6 +187,21 @@ public final class ScrollableInventoryMenu extends InventoryMenu {
         return stacks;
     }
 
+    /** Keeps the native menu cache aligned with the remapped visible page. */
+    public int synchronizeVisiblePageState() {
+        AbstractContainerMenuAccess access = (AbstractContainerMenuAccess) (Object) this;
+        for (ScrollSlot slot : gridSlots) {
+            ItemStack stack = slot.getItem().copy();
+            if (slot.index < access.infiniteinvo$getLastSlots().size()) {
+                access.infiniteinvo$getLastSlots().set(slot.index, stack.copy());
+            }
+            if (slot.index < access.infiniteinvo$getRemoteSlots().size()) {
+                access.infiniteinvo$getRemoteSlots().set(slot.index, stack);
+            }
+        }
+        return incrementStateId();
+    }
+
     public boolean unlockOne(Player player) {
         if (InfiniteInventoryData.unlockOne(player)) {
             data.set(0, InfiniteInventoryData.getUnlocked(player));

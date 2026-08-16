@@ -8,6 +8,7 @@ import infiniteinvo.inventory.ScrollableInventoryLayout;
 import infiniteinvo.inventory.ScrollableInventoryMenu;
 import infiniteinvo.mixin.client.AbstractContainerScreenMenuAccessor;
 import infiniteinvo.network.ScrollableInventoryPageRequestPayload;
+import infiniteinvo.mixin.AbstractContainerMenuAccess;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -451,7 +452,7 @@ public final class ScrollableInventoryScreen extends InventoryScreen {
     }
 
     /** Applies the server-confirmed page and its authoritative visible stacks. */
-    public static void applyServerPage(int containerId, int page, int requestId, List<ItemStack> stacks) {
+    public static void applyServerPage(int containerId, int page, int requestId, int stateId, List<ItemStack> stacks) {
         ScrollableInventoryScreen screen = current();
         if (screen == null || screen.menu.containerId != containerId
                 || screen.inFlightScrollPos != page
@@ -465,9 +466,23 @@ public final class ScrollableInventoryScreen extends InventoryScreen {
         for (int index = 0; index < visibleSlots; index++) {
             screen.menu.getStore().setItem(firstSlot + index, stacks.get(index).copy());
         }
+        AbstractContainerMenuAccess access = (AbstractContainerMenuAccess) (Object) screen.menu;
+        for (Slot slot : screen.menu.slots) {
+            if (!screen.menu.isVisibleStorageSlot(slot)) {
+                continue;
+            }
+            ItemStack stack = slot.getItem().copy();
+            if (slot.index < access.infiniteinvo$getLastSlots().size()) {
+                access.infiniteinvo$getLastSlots().set(slot.index, stack.copy());
+            }
+            if (slot.index < access.infiniteinvo$getRemoteSlots().size()) {
+                access.infiniteinvo$getRemoteSlots().set(slot.index, stack);
+            }
+        }
+        access.infiniteinvo$setStateId(stateId);
         screen.inFlightScrollPos = -1;
-        DebugLog.debug("[Paging][Client] applied scroll confirmation containerId={} page={} requestId={} stackCount={}",
-                containerId, page, requestId, stacks.size());
+        DebugLog.debug("[Paging][Client] applied scroll confirmation containerId={} page={} requestId={} stateId={} stackCount={}",
+                containerId, page, requestId, stateId, stacks.size());
         screen.dispatchScrollRequest();
     }
 

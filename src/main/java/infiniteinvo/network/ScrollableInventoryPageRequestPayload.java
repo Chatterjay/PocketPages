@@ -49,16 +49,11 @@ public record ScrollableInventoryPageRequestPayload(int containerId, int page, i
                 // The client must remap ScrollSlot indices before these native
                 // menu packets reach it, otherwise a new page can populate the
                 // slots still pointing at the previous page.
+                int stateId = menu.synchronizeVisiblePageState();
                 PacketDistributor.sendToPlayer(player, new ScrollableInventoryPageDataPayload(
-                        menu.containerId, menu.getScrollPos(), payload.requestId(), menu.visibleStacks()));
-                // A page remap changes what every visible Slot refers to even
-                // when the stacks compare equal (for example, two pages of
-                // stone x64). Delta synchronization would omit those values
-                // and leave the client showing its old backing slots until a
-                // click happens to force another update.
-                player.containerMenu.broadcastFullState();
-                DebugLog.debug("[Paging][Server] scroll complete player={} page={} visibleSlots={}",
-                        player.getName().getString(), menu.getScrollPos(), menu.describeVisibleSlots());
+                        menu.containerId, menu.getScrollPos(), payload.requestId(), stateId, menu.visibleStacks()));
+                DebugLog.debug("[Paging][Server] scroll complete player={} page={} stateId={} visibleSlots={}",
+                        player.getName().getString(), menu.getScrollPos(), stateId, menu.describeVisibleSlots());
             } else {
                 DebugLog.debug("[Paging][Server] scroll request rejected: old request player={} requestId={}",
                         player.getName().getString(), payload.requestId());

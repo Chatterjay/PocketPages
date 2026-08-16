@@ -81,7 +81,9 @@ public final class InfiniteInventoryData {
 
     public static void markDirty(Player player) {
         if (player instanceof ServerPlayer serverPlayer) {
-            InfiniteInventorySavedData.get(serverPlayer.serverLevel()).setDirty();
+            InfiniteInventorySavedData data = InfiniteInventorySavedData.get(serverPlayer.serverLevel());
+            data.getOrCreate(player.getUUID()).touch();
+            data.setDirty();
         }
     }
 

@@ -17,8 +17,8 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  * The scroll slots are remapped client-side, so vanilla's menu cache cannot
  * reliably tell that identical stacks now belong to different real slots.
  */
-public record ScrollableInventoryPageDataPayload(int containerId, int page, int requestId, List<ItemStack> stacks)
-        implements CustomPacketPayload {
+public record ScrollableInventoryPageDataPayload(int containerId, int page, int requestId, int stateId,
+                                                 List<ItemStack> stacks) implements CustomPacketPayload {
     public static final Type<ScrollableInventoryPageDataPayload> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(InfiniteInvo.MODID, "scrollable_inventory_page_data"));
     public static final StreamCodec<RegistryFriendlyByteBuf, ScrollableInventoryPageDataPayload> STREAM_CODEC =
@@ -26,6 +26,7 @@ public record ScrollableInventoryPageDataPayload(int containerId, int page, int 
                     ByteBufCodecs.VAR_INT, ScrollableInventoryPageDataPayload::containerId,
                     ByteBufCodecs.VAR_INT, ScrollableInventoryPageDataPayload::page,
                     ByteBufCodecs.VAR_INT, ScrollableInventoryPageDataPayload::requestId,
+                    ByteBufCodecs.VAR_INT, ScrollableInventoryPageDataPayload::stateId,
                     ItemStack.OPTIONAL_LIST_STREAM_CODEC, ScrollableInventoryPageDataPayload::stacks,
                     ScrollableInventoryPageDataPayload::new);
 
@@ -36,6 +37,6 @@ public record ScrollableInventoryPageDataPayload(int containerId, int page, int 
 
     public static void handle(ScrollableInventoryPageDataPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> ScrollableInventoryScreen.applyServerPage(
-                payload.containerId(), payload.page(), payload.requestId(), payload.stacks()));
+                payload.containerId(), payload.page(), payload.requestId(), payload.stateId(), payload.stacks()));
     }
 }

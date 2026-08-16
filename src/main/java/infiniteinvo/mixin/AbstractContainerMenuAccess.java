@@ -25,4 +25,8 @@ public interface AbstractContainerMenuAccess {
 
     @Accessor("remoteSlots")
     NonNullList<ItemStack> infiniteinvo$getRemoteSlots();
+
+    @Mutable
+    @Accessor("stateId")
+    void infiniteinvo$setStateId(int stateId);
 }

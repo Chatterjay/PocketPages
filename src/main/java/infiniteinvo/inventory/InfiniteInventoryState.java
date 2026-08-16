@@ -23,6 +23,7 @@ public final class InfiniteInventoryState implements INBTSerializable<CompoundTa
     private final List<ItemStack> items = new ArrayList<>();
     private int unlockedSlots;
     private boolean initialized;
+    private long revision;
 
     public InfiniteInventoryState() {
         ensureSize();
@@ -51,22 +52,42 @@ public final class InfiniteInventoryState implements INBTSerializable<CompoundTa
 
     public void clearStoredItem(int slot) {
         if (slot >= 0 && slot < items.size()) {
-            items.set(slot, ItemStack.EMPTY);
+            if (!items.get(slot).isEmpty()) {
+                items.set(slot, ItemStack.EMPTY);
+                revision++;
+            }
         }
     }
 
     public void setItem(int slot, ItemStack stack) {
         ensureSize();
         if (slot >= 0 && slot < size()) {
-            items.set(slot, stack.copy());
+            ItemStack copy = stack.copy();
+            if (!ItemStack.matches(items.get(slot), copy)) {
+                items.set(slot, copy);
+                revision++;
+            }
         }
     }
 
     void setItemReference(int slot, ItemStack stack) {
         ensureSize();
         if (slot >= 0 && slot < size()) {
-            items.set(slot, stack);
+            if (!ItemStack.matches(items.get(slot), stack)) {
+                items.set(slot, stack);
+                revision++;
+            }
         }
+    }
+
+    /** Changes whenever the inventory contents or unlock state changes. */
+    public long revision() {
+        return revision;
+    }
+
+    /** Marks an in-place ItemStack mutation that cannot be detected by a slot write. */
+    public void touch() {
+        revision++;
     }
 
     public ItemStack removeItem(int slot, int amount) {
@@ -78,6 +99,7 @@ public final class InfiniteInventoryState implements INBTSerializable<CompoundTa
         if (stack.isEmpty()) {
             items.set(slot, ItemStack.EMPTY);
         }
+        revision++;
         return removed;
     }
 
@@ -87,6 +109,9 @@ public final class InfiniteInventoryState implements INBTSerializable<CompoundTa
         }
         ItemStack previous = items.get(slot);
         items.set(slot, ItemStack.EMPTY);
+        if (!previous.isEmpty()) {
+            revision++;
+        }
         return previous;
     }
 
@@ -95,7 +120,11 @@ public final class InfiniteInventoryState implements INBTSerializable<CompoundTa
     }
 
     public void setUnlockedSlots(int unlockedSlots) {
-        this.unlockedSlots = Math.max(0, Math.min(unlockedSlots, size()));
+        int normalized = Math.max(0, Math.min(unlockedSlots, size()));
+        if (this.unlockedSlots != normalized) {
+            this.unlockedSlots = normalized;
+            revision++;
+        }
     }
 
     public boolean isInitialized() {
@@ -132,6 +161,7 @@ public final class InfiniteInventoryState implements INBTSerializable<CompoundTa
         InfiniteInventoryState copy = new InfiniteInventoryState();
         copy.unlockedSlots = unlockedSlots;
         copy.initialized = initialized;
+        copy.revision = revision;
         copy.ensureStorage(items.size());
         for (int i = 0; i < items.size(); i++) {
             copy.items.set(i, items.get(i).copy());

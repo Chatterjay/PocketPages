@@ -9,6 +9,7 @@ import infiniteinvo.network.CloseCreativeInventoryPagingPayload;
 import infiniteinvo.network.CreativeInventoryPageRequestPayload;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -263,9 +264,9 @@ public final class ContainerInventoryPagingController {
         return state != null && state.open && (state.awaitingPage || state.requestQueued);
     }
 
-    public static void receivePageData(int row, int unlocked, int sessionId, int requestId) {
-        DebugLog.debug("[Paging][Client] container page confirmation row={} session={} requestId={} unlocked={}",
-                row, sessionId, requestId, unlocked);
+    public static void receivePageData(int row, int unlocked, int sessionId, int requestId, long revision) {
+        DebugLog.debug("[Paging][Client] container page confirmation row={} session={} requestId={} unlocked={} revision={}",
+                row, sessionId, requestId, unlocked, revision);
         if (Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> screen) {
             State state = STATES.get(screen);
             if (state != null && state.open) {
@@ -280,6 +281,7 @@ public final class ContainerInventoryPagingController {
                 }
                 state.displayedRow = row;
                 state.unlockedSlots = unlocked;
+                state.pageRevisions.put(row, revision);
                 IpnCompat.applyMappedPageLocks(row);
                 state.pageLocksApplied = true;
                 state.awaitingPage = false;
@@ -341,7 +343,8 @@ public final class ContainerInventoryPagingController {
         DebugLog.debug("[Paging][Client] send container page request row={} session={} requestId={} displayedRow={}",
                 state.inFlightRow, state.sessionId, state.inFlightRequestId, state.displayedRow);
         PacketDistributor.sendToServer(new CreativeInventoryPageRequestPayload(
-                state.inFlightRow, state.sessionId, state.inFlightRequestId));
+                state.inFlightRow, state.sessionId, state.inFlightRequestId,
+                state.pageRevisions.getOrDefault(state.inFlightRow, -1L)));
     }
 
     private static boolean isOverScrollbar(AbstractContainerScreen<?> screen, Grid grid, double mouseX, double mouseY) {
@@ -414,5 +417,6 @@ public final class ContainerInventoryPagingController {
         // Rendering no lock marker until then is preferable to a false locked flash.
         private int unlockedSlots = Integer.MAX_VALUE;
         private Grid grid;
+        private final Map<Integer, Long> pageRevisions = new HashMap<>();
     }
 }

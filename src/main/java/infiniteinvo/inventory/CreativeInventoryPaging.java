@@ -2,6 +2,7 @@ package infiniteinvo.inventory;
 
 import infiniteinvo.Config;
 import infiniteinvo.DebugLog;
+import infiniteinvo.mixin.AbstractContainerMenuAccess;
 import infiniteinvo.network.CreativeInventoryPageDataPayload;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,7 +35,8 @@ public final class CreativeInventoryPaging {
     private CreativeInventoryPaging() {
     }
 
-    public static void selectRow(ServerPlayer player, int requestedRow, int sessionId, int requestId) {
+    public static void selectRow(ServerPlayer player, int requestedRow, int sessionId, int requestId,
+                                 long knownRevision) {
         ExtendedInventory.ensure(player.getInventory());
         UUID playerId = player.getUUID();
         Integer activeSession = ACTIVE_SESSIONS.get(playerId);
@@ -60,13 +62,10 @@ public final class CreativeInventoryPaging {
         ACTIVE_ROWS.put(playerId, row);
         ACTIVE_SESSIONS.put(playerId, sessionId);
         LAST_REQUESTS.put(playerId, requestId);
-        sendPage(player, row, sessionId, requestId, state);
-        player.inventoryMenu.broadcastChanges();
-        if (player.containerMenu != player.inventoryMenu) {
-            player.containerMenu.broadcastChanges();
-        }
-        DebugLog.debug("[Paging] mapped real slots player={} row={} virtualStart={}",
-                player.getName().getString(), row, row * 9);
+        int stateId = synchronizeMappedPageState(player.containerMenu);
+        sendPage(player, row, sessionId, requestId, knownRevision, stateId, state);
+        DebugLog.debug("[Paging] mapped real slots player={} row={} virtualStart={} stateId={} knownRevision={} revision={}",
+                player.getName().getString(), row, row * 9, stateId, knownRevision, state.revision());
     }
 
     public static void restoreVanillaPage(ServerPlayer player) {
@@ -147,12 +146,52 @@ public final class CreativeInventoryPaging {
         int row = ACTIVE_ROWS.getOrDefault(player.getUUID(), 0);
         Integer session = ACTIVE_SESSIONS.get(player.getUUID());
         if (session != null) {
-            sendPage(player, row, session, Integer.MAX_VALUE, InfiniteInventoryData.state(player));
+            InfiniteInventoryState state = InfiniteInventoryData.state(player);
+            int stateId = synchronizeMappedPageState(player.containerMenu);
+            sendPage(player, row, session, Integer.MAX_VALUE, -1L, stateId, state);
+        } else {
+            player.inventoryMenu.broadcastChanges();
+            if (player.containerMenu != player.inventoryMenu) {
+                player.containerMenu.broadcastChanges();
+            }
         }
-        player.inventoryMenu.broadcastChanges();
-        if (player.containerMenu != player.inventoryMenu) {
-            player.containerMenu.broadcastChanges();
+    }
+
+    /** Updates the client-side native cache after a page payload remaps slots. */
+    public static void synchronizeClientPageState(AbstractContainerMenu menu, int stateId) {
+        MenuMapping mapping = MENU_MAPPINGS.get(menu);
+        if (mapping == null) {
+            return;
         }
+        AbstractContainerMenuAccess access = (AbstractContainerMenuAccess) (Object) menu;
+        for (MappedSlot mapped : mapping.slots) {
+            ItemStack stack = mapped.slot().getItem().copy();
+            if (mapped.slot().index < access.infiniteinvo$getLastSlots().size()) {
+                access.infiniteinvo$getLastSlots().set(mapped.slot().index, stack.copy());
+            }
+            if (mapped.slot().index < access.infiniteinvo$getRemoteSlots().size()) {
+                access.infiniteinvo$getRemoteSlots().set(mapped.slot().index, stack);
+            }
+        }
+        access.infiniteinvo$setStateId(stateId);
+    }
+
+    private static int synchronizeMappedPageState(AbstractContainerMenu menu) {
+        MenuMapping mapping = MENU_MAPPINGS.get(menu);
+        if (mapping == null) {
+            return menu.incrementStateId();
+        }
+        AbstractContainerMenuAccess access = (AbstractContainerMenuAccess) (Object) menu;
+        for (MappedSlot mapped : mapping.slots) {
+            ItemStack stack = mapped.slot().getItem().copy();
+            if (mapped.slot().index < access.infiniteinvo$getLastSlots().size()) {
+                access.infiniteinvo$getLastSlots().set(mapped.slot().index, stack.copy());
+            }
+            if (mapped.slot().index < access.infiniteinvo$getRemoteSlots().size()) {
+                access.infiniteinvo$getRemoteSlots().set(mapped.slot().index, stack);
+            }
+        }
+        return menu.incrementStateId();
     }
 
     private static void mapMenu(Player player, AbstractContainerMenu menu, int row) {
@@ -188,9 +227,13 @@ public final class CreativeInventoryPaging {
     }
 
     private static void sendPage(ServerPlayer player, int row, int sessionId, int requestId,
-                                 InfiniteInventoryState state) {
+                                 long knownRevision, int stateId, InfiniteInventoryState state) {
+        List<ItemStack> stacks = knownRevision == state.revision()
+                ? List.of()
+                : page(state, row);
         PacketDistributor.sendToPlayer(player, new CreativeInventoryPageDataPayload(
-                row, InfiniteInventoryData.getUnlocked(player), sessionId, requestId, page(state, row)));
+                row, InfiniteInventoryData.getUnlocked(player), sessionId, requestId,
+                state.revision(), stateId, stacks));
     }
 
     public static int maxRow() {

@@ -9,6 +9,7 @@ import infiniteinvo.network.CloseCreativeInventoryPagingPayload;
 import infiniteinvo.network.CreativeInventoryPageRequestPayload;
 import infiniteinvo.network.ClearInfiniteInventoryPayload;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -173,14 +174,15 @@ public final class CreativeInventoryController {
         }
     }
 
-    public static void applyPage(int row, int unlockedSlots, int sessionId, int requestId, List<ItemStack> stacks) {
+    public static void applyPage(int row, int unlockedSlots, int sessionId, int requestId,
+                                 long revision, int stateId, List<ItemStack> stacks) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) {
             return;
         }
 
-        DebugLog.debug("[Paging][Client] page response row={} session={} requestId={} stacks={} screen={}",
-                row, sessionId, requestId, describeStacks(stacks),
+        DebugLog.debug("[Paging][Client] page response row={} session={} requestId={} revision={} stateId={} stacks={} screen={}",
+                row, sessionId, requestId, revision, stateId, describeStacks(stacks),
                 minecraft.screen == null ? "none" : minecraft.screen.getClass().getSimpleName());
 
         State creativeState = null;
@@ -206,7 +208,10 @@ public final class CreativeInventoryController {
         if (!(minecraft.screen instanceof CreativeModeInventoryScreen)) {
             if (minecraft.screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> container) {
                 CreativeInventoryPaging.mapClientMenu(minecraft.player, container.getMenu(), row);
+                CreativeInventoryPaging.synchronizeClientPageState(container.getMenu(), stateId);
             }
+        } else if (minecraft.screen instanceof CreativeModeInventoryScreen creative) {
+            CreativeInventoryPaging.synchronizeClientPageState(creative.getMenu(), stateId);
         }
         IpnCompat.applyMappedPageLocks(row);
         if (creativeState != null) {
@@ -216,6 +221,7 @@ public final class CreativeInventoryController {
             creativeState.awaitingPage = false;
             creativeState.inFlightRow = -1;
             creativeState.inFlightRequestId = -1;
+            creativeState.pageRevisions.put(row, revision);
             if (creativeState.requestedRow != row) {
                 creativeState.requestQueued = true;
                 creativeState.requestDelay = 0;
@@ -224,7 +230,7 @@ public final class CreativeInventoryController {
             DebugLog.debug("[Paging][Client] creative page applied row={} displayedRow={} requestedRow={} nextQueued={}",
                     row, creativeState.displayedRow, creativeState.requestedRow, creativeState.requestQueued);
         } else {
-            ContainerInventoryPagingController.receivePageData(row, unlockedSlots, sessionId, requestId);
+            ContainerInventoryPagingController.receivePageData(row, unlockedSlots, sessionId, requestId, revision);
         }
     }
 
@@ -394,7 +400,8 @@ public final class CreativeInventoryController {
         DebugLog.debug("[Paging][Client] send creative page request row={} session={} requestId={} displayedRow={}",
                 state.inFlightRow, state.sessionId, state.inFlightRequestId, state.displayedRow);
         PacketDistributor.sendToServer(new CreativeInventoryPageRequestPayload(
-                state.inFlightRow, state.sessionId, state.inFlightRequestId));
+                state.inFlightRow, state.sessionId, state.inFlightRequestId,
+                state.pageRevisions.getOrDefault(state.inFlightRow, -1L)));
     }
 
     private static String describeStacks(List<ItemStack> stacks) {
@@ -426,5 +433,6 @@ public final class CreativeInventoryController {
         private boolean destroyRequested;
         private int requestDelay;
         private int unlockedSlots = Integer.MAX_VALUE;
+        private final Map<Integer, Long> pageRevisions = new HashMap<>();
     }
 }
