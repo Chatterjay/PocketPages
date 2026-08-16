@@ -11,6 +11,7 @@
   "item.infiniteinvo.unlock_slot": "Unlock Slot",
   "item.infiniteinvo.locked_slot": "Locked Slot",
   "item.infiniteinvo.unlock_slot.desc": "Right-click to unlock one more extra slot. Sneak-right-click to open your inventory.",
+  "item.infiniteinvo.unlock_slot.disabled": "This item is disabled because Require Experience to Unlock is turned off.",
   "item.infiniteinvo.locked_slot.desc": "Internal placeholder item used to reserve disabled slots.",
   "infiniteinvo.configuration.title": "InfiniteInvo Configuration",
   "infiniteinvo.configuration.server": "Server",

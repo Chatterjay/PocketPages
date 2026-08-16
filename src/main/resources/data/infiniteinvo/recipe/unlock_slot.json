@@ -1,4 +1,9 @@
 {
+  "neoforge:conditions": [
+    {
+      "type": "infiniteinvo:require_experience_to_unlock"
+    }
+  ],
   "type": "minecraft:crafting_shaped",
   "pattern": [
     " G ",

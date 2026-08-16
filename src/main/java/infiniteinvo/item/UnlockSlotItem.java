@@ -2,6 +2,9 @@ package infiniteinvo.item;
 
 import infiniteinvo.inventory.InfiniteInventoryData;
 import infiniteinvo.inventory.ScrollableInventoryMenu;
+import infiniteinvo.Config;
+import java.util.List;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -13,7 +16,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
-import java.util.List;
 
 public final class UnlockSlotItem extends Item {
     public UnlockSlotItem(Properties properties) {
@@ -23,6 +25,16 @@ public final class UnlockSlotItem extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+        if (!Config.requiresExperienceToUnlock()) {
+            if (!level.isClientSide()) {
+                player.displayClientMessage(
+                        Component.translatable("item.infiniteinvo.unlock_slot.disabled")
+                                .withStyle(ChatFormatting.RED),
+                        false);
+            }
+            return InteractionResultHolder.fail(stack);
+        }
+
         if (level.isClientSide()) {
             return InteractionResultHolder.sidedSuccess(stack, true);
         }
@@ -47,5 +59,9 @@ public final class UnlockSlotItem extends Item {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("item.infiniteinvo.unlock_slot.desc"));
+        if (!Config.requiresExperienceToUnlock()) {
+            tooltip.add(Component.translatable("item.infiniteinvo.unlock_slot.disabled")
+                    .withStyle(ChatFormatting.RED));
+        }
     }
 }

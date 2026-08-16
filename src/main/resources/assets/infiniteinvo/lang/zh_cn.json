@@ -11,6 +11,7 @@
   "item.infiniteinvo.unlock_slot": "解锁槽位",
   "item.infiniteinvo.locked_slot": "锁定槽位",
   "item.infiniteinvo.unlock_slot.desc": "右键解锁一个额外槽位。潜行右键打开背包。",
+  "item.infiniteinvo.unlock_slot.disabled": "当前未开启“解锁需要经验”，无法使用此物品。",
   "item.infiniteinvo.locked_slot.desc": "用于占位的内部物品。",
   "infiniteinvo.configuration.title": "InfiniteInvo 配置",
   "infiniteinvo.configuration.server": "服务端",
