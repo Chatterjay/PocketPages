@@ -1,0 +1,25 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "pocketpages:require_experience_to_unlock"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " G ",
+    "GEG",
+    " G "
+  ],
+  "key": {
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "E": {
+      "item": "minecraft:ender_pearl"
+    }
+  },
+  "result": {
+    "id": "pocketpages:unlock_slot",
+    "count": 1
+  }
+}

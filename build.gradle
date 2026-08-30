@@ -27,6 +27,8 @@ sourceSets.main.resources {
     exclude("src/generated/**/.cache") // datagen cache files
 }
 
+sourceSets.main.java.srcDir('test/src')
+
 repositories {
     // Add here additional repositories if required by some of the dependencies below.
 }
@@ -63,6 +65,19 @@ neoForge {
             server()
             programArgument '--nogui'
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        if (project.file('test/src').exists()) {
+            networkBenchmarkServer {
+                server()
+                gameDirectory = project.file('test/network-benchmark-server')
+                programArgument '--nogui'
+                systemProperty 'pocketpages.networkBenchmark', System.getProperty('pocketpages.networkBenchmark', 'true')
+                systemProperty 'pocketpages.networkBenchmark.clients', System.getProperty('pocketpages.networkBenchmark.clients', '8')
+                systemProperty 'pocketpages.networkBenchmark.moves', System.getProperty('pocketpages.networkBenchmark.moves', '240')
+                systemProperty 'pocketpages.networkBenchmark.maxPacketBytes', System.getProperty('pocketpages.networkBenchmark.maxPacketBytes', '262144')
+                systemProperty 'pocketpages.networkBenchmark.extraItemDataBytes', System.getProperty('pocketpages.networkBenchmark.extraItemDataBytes', '0')
+            }
         }
         // This run config launches GameTestServer and runs all registered gametests, then exits.
         // By default, the server will crash when no gametests are provided.
@@ -120,11 +135,11 @@ dependencies {
     compileOnly files("run/mods/InventoryProfilesNext-neoforge-1.21.1-2.2.5.jar")
 
     // Optional Curios API used to expose Curios' validated equipment slots through
-    // InfiniteInvo's unified player item-handler capability.
+    // PocketPages's unified player item-handler capability.
     compileOnly files("run/mods/curios-neoforge-9.5.1+1.21.1.jar")
 
     // Optional client-side attributes panel API. These jars are not bundled
-    // or published as dependencies of InfiniteInvo.
+    // or published as dependencies of PocketPages.
     compileOnly files("run/mods/API/ApothicAttributes-1.21.1-2.10.1.jar")
     compileOnly files("run/mods/API/Placebo-1.21.1-9.9.2.jar")
 

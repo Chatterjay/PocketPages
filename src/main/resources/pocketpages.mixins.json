@@ -1,0 +1,36 @@
+{
+  "required": true,
+  "package": "pocketpages.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "AbstractContainerMenuAccess",
+    "MutableSlotMixin",
+    "ExtendedInventoryMixin",
+    "SelectedItemDropMixin",
+    "InventoryBoundsMixin",
+    "InventoryOverflowMixin",
+    "InventoryFunctionalScanMixin",
+    "PlayerInvWrapperMixin",
+    "MappedPlayerSlotLockMixin",
+    "Ae2PlayerInventorySlotsMixin"
+  ],
+  "client": [
+    "client.AbstractContainerScreenAccessor",
+    "client.AbstractContainerScreenMenuAccessor",
+    "client.CreativeSlotWrapperMixin",
+    "client.CreativeHotbarDropMixin",
+    "client.ClientMappedPlayerSlotLockMixin",
+    "client.ClientQuickCraftResetMixin",
+    "client.ClientInventoryDropQueueMixin",
+    "client.ScrollableInventoryRecipeBookLayoutMixin",
+    "client.ApothicAttributesRecipeBookLayoutMixin",
+    "client.CuriosRecipeBookLayoutMixin",
+    "client.IpnAreaTypesMixin",
+    "client.IpnLockSlotsHandlerMixin",
+    "client.IpnAutoRefillHandlerMixin",
+    "client.IpnSortingButtonPositionMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
