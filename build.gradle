@@ -135,10 +135,10 @@ configurations {
 dependencies {
     // Optional compatibility APIs. They are only needed while compiling and
     // are never included in PocketPages' release jar.
-    compileOnly "maven.modrinth:inventory-profiles-next:neoforge-1.21.1-2.2.5"
-    compileOnly "maven.modrinth:curios:9.5.1+1.21.1"
-    compileOnly "maven.modrinth:apothic-attributes:1.21.1-2.10.1"
-    compileOnly "maven.modrinth:placebo:1.21.1-9.9.2"
+    compileOnly "maven.modrinth:inventory-profiles-next:neoforge-1.21.1-2.2.5@jar"
+    compileOnly "maven.modrinth:curios:9.5.1+1.21.1@jar"
+    compileOnly "maven.modrinth:apothic-attributes:1.21.1-2.10.1@jar"
+    compileOnly "maven.modrinth:placebo:1.21.1-9.9.2@jar"
 
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
